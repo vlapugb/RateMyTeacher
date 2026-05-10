@@ -1,0 +1,11 @@
+{
+	email noreply@example.com
+}
+
+http://151.243.173.175 {
+	redir https://ratespbuteacher.ru{uri} permanent
+}
+
+ratespbuteacher.ru www.ratespbuteacher.ru {
+	reverse_proxy anubis:8080
+}
