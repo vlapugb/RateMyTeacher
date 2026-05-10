@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+drizzle/meta
+tsconfig.tsbuildinfo
+.env
+.env*.local
+.cursor
+.idea
+.vscode
