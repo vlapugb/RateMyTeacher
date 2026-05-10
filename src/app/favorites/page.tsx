@@ -85,7 +85,7 @@ export default function FavoritesPage() {
       });
 
     return () => controller.abort();
-  }, [copy.loadFailed, session.data?.user?.id]);
+  }, [copy.loadFailed, session.data?.user]);
 
   if (!session.data?.user) {
     return (

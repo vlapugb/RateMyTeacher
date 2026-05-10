@@ -223,7 +223,7 @@ export default function AccountPage() {
       });
 
     return () => controller.abort();
-  }, [user?.id]);
+  }, [user]);
 
   const lastReviewLabel = summary?.lastReviewAt
     ? new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : language, {
