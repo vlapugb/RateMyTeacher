@@ -12,11 +12,14 @@ import { useAuthDialog } from "@/components/auth-dialog-context";
 import { authClient } from "@/lib/auth-client";
 import { formatReviewCount, localizeMetrics } from "@/lib/i18n";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
+import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
 import { cn } from "@/lib/utils";
 
 type TeacherCardProps = {
   teacher: Teacher;
+  href?: string;
   compact?: boolean;
+  onLinkClick?: () => void;
   onFavoriteChange?: (teacherId: string, saved: boolean) => void;
 };
 
@@ -47,7 +50,9 @@ const teacherCardCopy: Record<
 
 export function TeacherCard({
   teacher,
+  href,
   compact,
+  onLinkClick,
   onFavoriteChange,
 }: TeacherCardProps) {
   const { openAuthDialog } = useAuthDialog();
@@ -57,6 +62,7 @@ export function TeacherCard({
   const [saving, setSaving] = useState(false);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const saved = Boolean(teacher.saved);
+  const teacherHref = href?.trim() ? href : APP_ROUTES.teacher(teacher.id);
   const topMetrics = localizeMetrics(metrics, language)
     .filter((metric) => metric.key !== "overall")
     .map((metric) => ({
@@ -79,7 +85,9 @@ export function TeacherCard({
     setFavoriteError(null);
     const nextSaved = !saved;
     const response = await fetch(
-      `/api/favorites${nextSaved ? "" : `?teacherId=${teacher.id}`}`,
+      nextSaved
+        ? API_ROUTES.favorites
+        : `${API_ROUTES.favorites}?teacherId=${encodeURIComponent(teacher.id)}`,
       {
         method: nextSaved ? "POST" : "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -102,7 +110,8 @@ export function TeacherCard({
 
   return (
     <Link
-      href={`/teachers/${teacher.id}`}
+      href={teacherHref}
+      onClick={onLinkClick}
       className={cn(
         "interactive-card group block rounded-lg border border-line bg-panel p-3 shadow-sm hover:border-primary hover:shadow-md sm:p-4",
         compact && "p-3",

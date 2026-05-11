@@ -10,6 +10,8 @@ import { useAuthDialog } from "@/components/auth-dialog-context";
 import { authClient } from "@/lib/auth-client";
 import { genericReviewText, formatRelativeTime } from "@/lib/i18n";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
+import { API_ROUTES } from "@/lib/app-routes";
+import { HTTP_STATUS, REVIEW_IDENTITY } from "@/lib/app-config";
 import { cn } from "@/lib/utils";
 
 type ReviewCardProps = {
@@ -72,18 +74,18 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
   const author =
     review.anonymousNumber
       ? `${getAnonymousNoun(language)} #${review.anonymousNumber}`
-      : review.author === "Анонимно"
+      : review.author === REVIEW_IDENTITY.anonymousLabel
       ? generic.anonymous
-      : review.author === "Студент"
+      : review.author === REVIEW_IDENTITY.studentLabel
         ? generic.student
         : review.author;
   const course =
-    review.course === "Общая оценка преподавателя"
+    review.course === REVIEW_IDENTITY.generalCourseLabel
       ? generic.generalCourse
       : review.course;
   const year =
-    review.year === "Опубликованный отзыв" ||
-    review.year === "Анонимная публикация"
+    review.year === REVIEW_IDENTITY.publishedReviewLabel ||
+    review.year === REVIEW_IDENTITY.anonymousPublicationLabel
       ? generic.publishedReview
       : review.year;
 
@@ -98,7 +100,7 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
     setLikeStatus(null);
 
     const response = await fetch(
-      `/api/reviews/${encodeURIComponent(review.id)}/like`,
+      API_ROUTES.reviewLike(review.id),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -109,7 +111,11 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
     setLikeSaving(false);
 
     if (!response?.ok) {
-      setLikeStatus(response?.status === 401 ? copy.authRequired : copy.likeFailed);
+      setLikeStatus(
+        response?.status === HTTP_STATUS.unauthorized
+          ? copy.authRequired
+          : copy.likeFailed,
+      );
       return;
     }
 
@@ -177,7 +183,7 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
                   key={tag}
                   className="rounded-full bg-emerald-50 px-3 py-1 text-xs font800 text-emerald-700"
                 >
-                  {tag === "анонимно" ? generic.anonymousTag : tag}
+                  {tag === REVIEW_IDENTITY.anonymousTag ? generic.anonymousTag : tag}
                 </span>
               ))}
             </div>

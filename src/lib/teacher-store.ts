@@ -5,9 +5,15 @@ import type { MetricKey, Review, Teacher } from "@/lib/types";
 import {
   applyStatsToTeacher,
   createPublicReview,
+  joinReviewTextParts,
   resetTeachersRuntimeData,
   type TeacherStats,
 } from "@/lib/teacher-model";
+import {
+  RATING_SCALE,
+  REVIEW_CONFIG,
+  REVIEW_IDENTITY,
+} from "@/lib/app-config";
 
 type TeacherReviewRow = {
   id: string;
@@ -53,7 +59,14 @@ type ReviewPage = {
 
 let initialized = false;
 let initializationPromise: Promise<void> | null = null;
-const TEACHER_STATS_CACHE_MS = 10_000;
+const REVIEW_SCORE_COLUMNS = [
+  "knowledge",
+  "communication",
+  "leniency",
+  "fairness",
+  "vibe",
+  "overall",
+] as const satisfies MetricKey[];
 let teacherStatsCache:
   | {
       expiresAt: number;
@@ -75,7 +88,7 @@ export async function ensureTeacherRuntimeTables() {
 async function initializeTeacherRuntimeTables() {
   if (initialized) return;
 
-  await db.execute(sql`
+  await db.execute(sql.raw(`
     create table if not exists teacher_reviews (
       id text primary key,
       teacher_id text not null,
@@ -94,10 +107,10 @@ async function initializeTeacherRuntimeTables() {
       advice text not null default '',
       anonymous boolean not null default false,
       anonymous_number integer,
-      status text not null default 'approved',
+      status text not null default '${REVIEW_CONFIG.approvedStatus}',
       created_at timestamp not null default now()
     )
-  `);
+  `));
   await db.execute(sql`
     alter table teacher_reviews
       add column if not exists anonymous_number integer
@@ -187,16 +200,7 @@ async function initializeTeacherRuntimeTables() {
 }
 
 async function ensureTeacherReviewScoreConstraints() {
-  const scoreColumns = [
-    "knowledge",
-    "communication",
-    "leniency",
-    "fairness",
-    "vibe",
-    "overall",
-  ] as const;
-
-  for (const column of scoreColumns) {
+  for (const column of REVIEW_SCORE_COLUMNS) {
     await db.execute(sql.raw(`
       do $$
       begin
@@ -207,7 +211,7 @@ async function ensureTeacherReviewScoreConstraints() {
         ) then
           alter table teacher_reviews
             add constraint teacher_reviews_${column}_range_check
-            check (${column} is null or (${column} >= 1 and ${column} <= 5));
+            check (${column} is null or (${column} >= ${RATING_SCALE.min} and ${column} <= ${RATING_SCALE.max}));
         end if;
       end
       $$;
@@ -243,7 +247,7 @@ export async function getTeacherStats() {
     throw error;
   });
   teacherStatsCache = {
-    expiresAt: now + TEACHER_STATS_CACHE_MS,
+    expiresAt: now + REVIEW_CONFIG.statsCacheMs,
     promise: nextPromise,
   };
 
@@ -274,7 +278,7 @@ async function readTeacherStats() {
       avg(vibe) as vibe,
       avg(overall) as overall
     from teacher_reviews
-    where status = 'approved'
+    where status = ${REVIEW_CONFIG.approvedStatus}
     group by teacher_id
   `);
   const rows = result.rows as TeacherStatsRow[];
@@ -311,9 +315,9 @@ export async function getPublicReviews(
   const page = await getPublicReviewsPage({
     teacherId,
     userId,
-    limit: options.limit ?? 50,
+    limit: options.limit ?? REVIEW_CONFIG.maxPageSize,
     offset: options.offset ?? 0,
-    sort: options.sort ?? "newest",
+    sort: options.sort ?? REVIEW_CONFIG.defaultSort,
   });
 
   return page.reviews;
@@ -328,7 +332,7 @@ export async function getPublicReviewsPage(input: {
 }): Promise<ReviewPage> {
   await ensureTeacherRuntimeTables();
 
-  const limit = Math.min(50, Math.max(1, input.limit));
+  const limit = Math.min(REVIEW_CONFIG.maxPageSize, Math.max(1, input.limit));
   const offset = Math.max(0, input.offset);
   const [result, countResult] = await Promise.all([
     getPublicReviewsPageRows(input.teacherId, input.userId, limit, offset, input.sort),
@@ -336,7 +340,7 @@ export async function getPublicReviewsPage(input: {
       select count(*) as total
       from teacher_reviews
       where teacher_id = ${input.teacherId}
-        and status = 'approved'
+        and status = ${REVIEW_CONFIG.approvedStatus}
         and length(trim(comment || liked || difficult || exam_process || advice)) > 0
     `),
   ]);
@@ -378,7 +382,7 @@ function getPublicReviewsPageRows(
         where review_like.review_id = review.id
       ) likes on true
       where review.teacher_id = ${teacherId}
-        and review.status = 'approved'
+        and review.status = ${REVIEW_CONFIG.approvedStatus}
         and length(trim(review.comment || review.liked || review.difficult || review.exam_process || review.advice)) > 0
       order by
         case when (
@@ -432,7 +436,7 @@ function getPublicReviewsPageRows(
         where review_like.review_id = review.id
       ) likes on true
       where review.teacher_id = ${teacherId}
-        and review.status = 'approved'
+        and review.status = ${REVIEW_CONFIG.approvedStatus}
         and length(trim(review.comment || review.liked || review.difficult || review.exam_process || review.advice)) > 0
       order by
         case when (
@@ -485,7 +489,7 @@ function getPublicReviewsPageRows(
       where review_like.review_id = review.id
     ) likes on true
     where review.teacher_id = ${teacherId}
-      and review.status = 'approved'
+      and review.status = ${REVIEW_CONFIG.approvedStatus}
       and length(trim(review.comment || review.liked || review.difficult || review.exam_process || review.advice)) > 0
     order by review.created_at desc
     limit ${limit}
@@ -514,7 +518,7 @@ export async function getOwnReview(teacherId: string, userId: string) {
     ) likes on true
     where review.teacher_id = ${teacherId}
       and review.user_id = ${userId}
-      and review.status = 'approved'
+      and review.status = ${REVIEW_CONFIG.approvedStatus}
     limit 1
   `);
   const [row] = result.rows as TeacherReviewRow[];
@@ -588,7 +592,7 @@ export async function createTeacherReview(input: {
         )
         values (
           $1, $2, $3, $4, $5, $6, $7, $8, $9,
-          $10, $11, $12, $13, $14, $15, $16, $17, 'approved'
+          $10, $11, $12, $13, $14, $15, $16, $17, $18
         )
       `,
       [
@@ -609,6 +613,7 @@ export async function createTeacherReview(input: {
         input.advice,
         input.anonymous,
         anonymousNumber,
+        REVIEW_CONFIG.approvedStatus,
       ],
     );
     await client.query("commit");
@@ -775,7 +780,7 @@ export async function setTeacherReviewLike(
   const reviewResult = await db.execute(sql`
     select id
     from teacher_reviews
-    where id = ${reviewId} and status = 'approved'
+    where id = ${reviewId} and status = ${REVIEW_CONFIG.approvedStatus}
     limit 1
   `);
 
@@ -832,17 +837,19 @@ function rowToPublicReview(row: TeacherReviewRow, canEdit = false): Review {
   return createPublicReview({
     id: row.id,
     teacherId: row.teacher_id,
-    author: row.author_name ?? "Студент",
-    course: "Общая оценка преподавателя",
+    author: row.author_name ?? REVIEW_IDENTITY.studentLabel,
+    course: REVIEW_IDENTITY.generalCourseLabel,
     createdAt,
     rating: getReviewRating(row),
     hasRating,
     body:
       row.comment.trim() ||
-      [row.liked, row.difficult, row.exam_process, row.advice]
-        .map((part) => part.trim())
-        .filter(Boolean)
-        .join(" "),
+      joinReviewTextParts({
+        liked: row.liked,
+        difficult: row.difficult,
+        examProcess: row.exam_process,
+        advice: row.advice,
+      }),
     anonymous: row.anonymous,
     anonymousNumber:
       row.anonymous_number == null ? undefined : Number(row.anonymous_number),

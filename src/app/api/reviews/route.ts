@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { teachers } from "@/lib/mock-data";
-import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
+import { joinReviewTextParts } from "@/lib/teacher-model";
 import {
   createTeacherReview,
   deleteTeacherReview,
@@ -11,25 +11,42 @@ import {
   updateTeacherReview,
   type ReviewSortKey,
 } from "@/lib/teacher-store";
+import {
+  API_RATE_LIMITS,
+  HTTP_STATUS,
+  RATE_LIMIT_NAMESPACE,
+  RATING_SCALE,
+  REVIEW_CONFIG,
+} from "@/lib/app-config";
+import {
+  createRateLimitResponse,
+  jsonMessage,
+  parseBoundedInteger,
+  readJson,
+} from "@/lib/http";
 
 const scoreSchema = z.object({
-  knowledge: z.number().min(1).max(5).optional(),
-  communication: z.number().min(1).max(5).optional(),
-  leniency: z.number().min(1).max(5).optional(),
-  fairness: z.number().min(1).max(5).optional(),
-  vibe: z.number().min(1).max(5).optional(),
-  overall: z.number().min(1).max(5).optional(),
+  knowledge: z.number().min(RATING_SCALE.min).max(RATING_SCALE.max).optional(),
+  communication: z
+    .number()
+    .min(RATING_SCALE.min)
+    .max(RATING_SCALE.max)
+    .optional(),
+  leniency: z.number().min(RATING_SCALE.min).max(RATING_SCALE.max).optional(),
+  fairness: z.number().min(RATING_SCALE.min).max(RATING_SCALE.max).optional(),
+  vibe: z.number().min(RATING_SCALE.min).max(RATING_SCALE.max).optional(),
+  overall: z.number().min(RATING_SCALE.min).max(RATING_SCALE.max).optional(),
 });
 
 const createReviewSchema = z
   .object({
     teacherId: z.string().min(1),
     scores: scoreSchema,
-    comment: z.string().max(500).default(""),
-    liked: z.string().max(500).default(""),
-    difficult: z.string().max(500).default(""),
-    examProcess: z.string().max(500).default(""),
-    advice: z.string().max(500).default(""),
+    comment: z.string().max(REVIEW_CONFIG.textMaxLength).default(""),
+    liked: z.string().max(REVIEW_CONFIG.textMaxLength).default(""),
+    difficult: z.string().max(REVIEW_CONFIG.textMaxLength).default(""),
+    examProcess: z.string().max(REVIEW_CONFIG.textMaxLength).default(""),
+    advice: z.string().max(REVIEW_CONFIG.textMaxLength).default(""),
     anonymous: z.boolean().default(false),
     publishAnonymously: z.boolean().default(false),
   })
@@ -52,15 +69,19 @@ export async function GET(request: Request) {
   });
   const { searchParams } = new URL(request.url);
   const teacherId = searchParams.get("teacherId");
-  const limit = clampNumber(Number(searchParams.get("limit") ?? 20), 1, 50);
-  const offset = Math.max(0, Number(searchParams.get("offset") ?? 0) || 0);
+  const limit = parseBoundedInteger(searchParams.get("limit"), {
+    fallback: REVIEW_CONFIG.defaultPageSize,
+    min: 1,
+    max: REVIEW_CONFIG.maxPageSize,
+  });
+  const offset = parseBoundedInteger(searchParams.get("offset"), {
+    fallback: 0,
+    min: 0,
+  });
   const sort = getReviewSort(searchParams.get("sort"));
 
   if (!teacherId) {
-    return NextResponse.json(
-      { message: "Не указан преподаватель." },
-      { status: 400 },
-    );
+    return jsonMessage("Не указан преподаватель.", HTTP_STATUS.badRequest);
   }
 
   const [reviewsPage, ownReview] = await Promise.all([
@@ -85,38 +106,26 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const ip = getClientIp(request);
-  const rateLimit = checkRateLimit(`reviews:post:${ip}`, 10);
-  if (!rateLimit.allowed) {
-    return NextResponse.json(
-      { message: "Слишком много запросов. Попробуйте позже." },
-      { status: 429, headers: getRateLimitHeaders(10, 0, `reviews:post:${ip}`) },
-    );
-  }
+  const rateLimitResponse = createReviewWriteRateLimitResponse(
+    request,
+    RATE_LIMIT_NAMESPACE.reviewPost,
+  );
+  if (rateLimitResponse) return rateLimitResponse;
 
   const body = await readJson(request);
 
   if (body === null) {
-    return NextResponse.json(
-      { message: "Неверный формат данных." },
-      { status: 400 },
-    );
+    return jsonMessage("Неверный формат данных.", HTTP_STATUS.badRequest);
   }
 
   const parsed = createReviewSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { message: "Проверьте поля формы." },
-      { status: 400 },
-    );
+    return jsonMessage("Проверьте поля формы.", HTTP_STATUS.badRequest);
   }
 
   if (!teachers.some((teacher) => teacher.id === parsed.data.teacherId)) {
-    return NextResponse.json(
-      { message: "Преподаватель не найден." },
-      { status: 404 },
-    );
+    return jsonMessage("Преподаватель не найден.", HTTP_STATUS.notFound);
   }
 
   const session = await auth.api.getSession({
@@ -129,17 +138,14 @@ export async function POST(request: Request) {
 
   if (!session) {
     if (hasScore) {
-      return NextResponse.json(
-        { message: "Войдите, чтобы поставить оценку. Комментарий можно оставить анонимно." },
-        { status: 401 },
+      return jsonMessage(
+        "Войдите, чтобы поставить оценку. Комментарий можно оставить анонимно.",
+        HTTP_STATUS.unauthorized,
       );
     }
 
     if (!hasComment) {
-      return NextResponse.json(
-        { message: "Заполните комментарий." },
-        { status: 400 },
-      );
+      return jsonMessage("Заполните комментарий.", HTTP_STATUS.badRequest);
     }
 
     await createTeacherReview({
@@ -153,23 +159,26 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       { ok: true, published: true, anonymous: true },
-      { status: 201 },
+      { status: HTTP_STATUS.created },
     );
   }
 
   if (hasScore && !session.user.emailVerified) {
-    return NextResponse.json(
-      { message: "Подтвердите почту перед публикацией оценки." },
-      { status: 403 },
+    return jsonMessage(
+      "Подтвердите почту перед публикацией оценки.",
+      HTTP_STATUS.forbidden,
     );
   }
 
-  const existingReview = await getOwnReview(parsed.data.teacherId, session.user.id);
+  const existingReview = await getOwnReview(
+    parsed.data.teacherId,
+    session.user.id,
+  );
 
   if (existingReview) {
-    return NextResponse.json(
-      { message: "Вы уже оценили этого преподавателя. Измените существующий отзыв." },
-      { status: 409 },
+    return jsonMessage(
+      "Вы уже оценили этого преподавателя. Измените существующий отзыв.",
+      HTTP_STATUS.conflict,
     );
   }
 
@@ -182,42 +191,33 @@ export async function POST(request: Request) {
     anonymous: parsed.data.publishAnonymously || parsed.data.anonymous,
   });
 
-  return NextResponse.json({ ok: true, published: true }, { status: 201 });
+  return NextResponse.json(
+    { ok: true, published: true },
+    { status: HTTP_STATUS.created },
+  );
 }
 
 export async function PUT(request: Request) {
-  const ip = getClientIp(request);
-  const rateLimit = checkRateLimit(`reviews:put:${ip}`, 10);
-  if (!rateLimit.allowed) {
-    return NextResponse.json(
-      { message: "Слишком много запросов. Попробуйте позже." },
-      { status: 429, headers: getRateLimitHeaders(10, 0, `reviews:put:${ip}`) },
-    );
-  }
+  const rateLimitResponse = createReviewWriteRateLimitResponse(
+    request,
+    RATE_LIMIT_NAMESPACE.reviewPut,
+  );
+  if (rateLimitResponse) return rateLimitResponse;
 
   const body = await readJson(request);
 
   if (body === null) {
-    return NextResponse.json(
-      { message: "Неверный формат данных." },
-      { status: 400 },
-    );
+    return jsonMessage("Неверный формат данных.", HTTP_STATUS.badRequest);
   }
 
   const parsed = createReviewSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { message: "Проверьте поля формы." },
-      { status: 400 },
-    );
+    return jsonMessage("Проверьте поля формы.", HTTP_STATUS.badRequest);
   }
 
   if (!teachers.some((teacher) => teacher.id === parsed.data.teacherId)) {
-    return NextResponse.json(
-      { message: "Преподаватель не найден." },
-      { status: 404 },
-    );
+    return jsonMessage("Преподаватель не найден.", HTTP_STATUS.notFound);
   }
 
   const session = await auth.api.getSession({
@@ -226,16 +226,16 @@ export async function PUT(request: Request) {
   const hasScore = hasReviewScore(parsed.data);
 
   if (!session) {
-    return NextResponse.json(
-      { message: "Войдите, чтобы изменить оценку." },
-      { status: 401 },
+    return jsonMessage(
+      "Войдите, чтобы изменить оценку.",
+      HTTP_STATUS.unauthorized,
     );
   }
 
   if (hasScore && !session.user.emailVerified) {
-    return NextResponse.json(
-      { message: "Подтвердите почту перед изменением оценки." },
-      { status: 403 },
+    return jsonMessage(
+      "Подтвердите почту перед изменением оценки.",
+      HTTP_STATUS.forbidden,
     );
   }
 
@@ -251,33 +251,24 @@ export async function PUT(request: Request) {
   });
 
   if (!updated) {
-    return NextResponse.json(
-      { message: "Сначала оставьте оценку." },
-      { status: 404 },
-    );
+    return jsonMessage("Сначала оставьте оценку.", HTTP_STATUS.notFound);
   }
 
   return NextResponse.json({ ok: true, updated: true });
 }
 
 export async function DELETE(request: Request) {
-  const ip = getClientIp(request);
-  const rateLimit = checkRateLimit(`reviews:delete:${ip}`, 10);
-  if (!rateLimit.allowed) {
-    return NextResponse.json(
-      { message: "Слишком много запросов. Попробуйте позже." },
-      { status: 429, headers: getRateLimitHeaders(10, 0, `reviews:delete:${ip}`) },
-    );
-  }
+  const rateLimitResponse = createReviewWriteRateLimitResponse(
+    request,
+    RATE_LIMIT_NAMESPACE.reviewDelete,
+  );
+  if (rateLimitResponse) return rateLimitResponse;
 
   const { searchParams } = new URL(request.url);
   const teacherId = searchParams.get("teacherId");
 
   if (!teacherId) {
-    return NextResponse.json(
-      { message: "Не указан преподаватель." },
-      { status: 400 },
-    );
+    return jsonMessage("Не указан преподаватель.", HTTP_STATUS.badRequest);
   }
 
   const session = await auth.api.getSession({
@@ -285,19 +276,16 @@ export async function DELETE(request: Request) {
   });
 
   if (!session) {
-    return NextResponse.json(
-      { message: "Войдите, чтобы удалить оценку." },
-      { status: 401 },
+    return jsonMessage(
+      "Войдите, чтобы удалить оценку.",
+      HTTP_STATUS.unauthorized,
     );
   }
 
   const deleted = await deleteTeacherReview(teacherId, session.user.id);
 
   if (!deleted) {
-    return NextResponse.json(
-      { message: "Оценка не найдена." },
-      { status: 404 },
-    );
+    return jsonMessage("Оценка не найдена.", HTTP_STATUS.notFound);
   }
 
   return NextResponse.json({ ok: true, deleted: true });
@@ -306,12 +294,7 @@ export async function DELETE(request: Request) {
 function getReviewComment(review: z.infer<typeof createReviewSchema>) {
   const parts = getReviewParts(review);
 
-  return (
-    parts.comment ||
-    [parts.liked, parts.difficult, parts.examProcess, parts.advice]
-      .filter(Boolean)
-      .join(" ")
-  );
+  return parts.comment || joinReviewTextParts(parts);
 }
 
 function getReviewParts(review: z.infer<typeof createReviewSchema>) {
@@ -331,21 +314,14 @@ function hasReviewScore(review: z.infer<typeof createReviewSchema>) {
 function getReviewSort(value: string | null): ReviewSortKey {
   if (value === "highest" || value === "lowest") return value;
 
-  return "newest";
+  return REVIEW_CONFIG.defaultSort;
 }
 
-function clampNumber(value: number, min: number, max: number) {
-  if (!Number.isFinite(value)) return min;
-
-  return Math.min(max, Math.max(min, Math.floor(value)));
-}
-
-async function readJson(request: Request) {
-  return request.json().catch(() => null);
-}
-
-function getClientIp(request: Request) {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    ?? request.headers.get("x-real-ip")
-    ?? "anonymous";
+function createReviewWriteRateLimitResponse(request: Request, namespace: string) {
+  return createRateLimitResponse({
+    request,
+    namespace,
+    limit: API_RATE_LIMITS.reviewWrites,
+    message: "Слишком много запросов. Попробуйте позже.",
+  });
 }

@@ -5,11 +5,15 @@ import { logger } from "@/lib/logger";
 import { pool } from "@/db/client";
 import { requireServerEnv } from "@/lib/env";
 import {
-  STUDENT_EMAIL_PATTERN,
-  STUDENT_LOGIN_PATTERN,
+  APP_NAME,
+  STUDENT_IDENTITY,
+} from "@/lib/app-config";
+import {
+  isStudentEmailMatchingLogin,
+  isStudentLogin,
+  normalizeStudentIdentifier,
 } from "@/lib/student-identity";
 
-const STUDENT_EMAIL_DOMAIN = "@student.spbu.ru";
 const authSecret = requireServerEnv("BETTER_AUTH_SECRET");
 const authBaseUrl = requireServerEnv("BETTER_AUTH_URL");
 
@@ -33,7 +37,7 @@ if (
 }
 
 export const auth = betterAuth({
-  appName: "StudRadar",
+  appName: APP_NAME,
   database: pool,
   secret: authSecret,
   baseURL: authBaseUrl,
@@ -56,23 +60,18 @@ export const auth = betterAuth({
             login?: unknown;
           }
         | undefined;
-      const email =
-        typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
-      const login =
-        typeof body?.login === "string" ? body.login.trim().toLowerCase() : "";
+      const email = normalizeStudentIdentifier(body?.email);
+      const login = normalizeStudentIdentifier(body?.login);
 
-      if (!STUDENT_LOGIN_PATTERN.test(login)) {
+      if (!isStudentLogin(login)) {
         throw new APIError("BAD_REQUEST", {
           message: "Логин должен быть в формате stXXXXXX.",
         });
       }
 
-      if (
-        !STUDENT_EMAIL_PATTERN.test(email) ||
-        email !== `${login}${STUDENT_EMAIL_DOMAIN}`
-      ) {
+      if (!isStudentEmailMatchingLogin(email, login)) {
         throw new APIError("BAD_REQUEST", {
-          message: "Почта должна совпадать с логином и доменом @student.spbu.ru.",
+          message: `Почта должна совпадать с логином и доменом @${STUDENT_IDENTITY.emailDomain}.`,
         });
       }
     }),
@@ -80,7 +79,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
-    minPasswordLength: 8,
+    minPasswordLength: STUDENT_IDENTITY.passwordMinLength,
     sendResetPassword: async ({ user, url }) => {
       await sendAuthEmail({
         to: user.email,
@@ -93,7 +92,7 @@ export const auth = betterAuth({
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
-    expiresIn: 60 * 60 * 24,
+    expiresIn: STUDENT_IDENTITY.emailVerificationTtlSeconds,
     sendVerificationEmail: async ({ user, url }) => {
       logger.info({ userId: user.id }, "Sending verification email");
       await sendAuthEmail({

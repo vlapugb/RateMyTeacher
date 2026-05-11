@@ -8,12 +8,15 @@ import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 import {
-  STUDENT_EMAIL_PATTERN,
-  STUDENT_LOGIN_PATTERN,
+  getStudentEmailForLogin,
+  isStudentEmail,
+  isStudentEmailMatchingLogin,
+  isStudentLogin,
+  normalizeStudentIdentifier,
 } from "@/lib/student-identity";
+import { APP_ROUTES, API_ROUTES } from "@/lib/app-routes";
+import { STUDENT_IDENTITY } from "@/lib/app-config";
 import { cn } from "@/lib/utils";
-
-const STUDENT_EMAIL_DOMAIN = "@student.spbu.ru";
 
 type AuthDialogProps = {
   initialMode?: AuthDialogMode;
@@ -229,13 +232,13 @@ export function AuthDialog({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const login = String(form.get("login") ?? "").trim().toLowerCase();
-    const email = String(form.get("email") ?? "").trim().toLowerCase();
+    const login = normalizeStudentIdentifier(form.get("login"));
+    const email = normalizeStudentIdentifier(form.get("email"));
     const password = String(form.get("password") ?? "");
     const name = String(form.get("name") ?? copy.defaultName);
 
     if (mode === "reset") {
-      if (!STUDENT_EMAIL_PATTERN.test(email)) {
+      if (!isStudentEmail(email)) {
         setStatus(copy.emailOnlyFormat);
         return;
       }
@@ -243,8 +246,11 @@ export function AuthDialog({
       setSubmitting(true);
       setStatus(null);
 
-      const redirectTo = new URL("/reset-password", window.location.origin).toString();
-      const response = await fetch("/api/auth/request-password-reset", {
+      const redirectTo = new URL(
+        APP_ROUTES.resetPassword,
+        window.location.origin,
+      ).toString();
+      const response = await fetch(API_ROUTES.authRequestPasswordReset, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, redirectTo }),
@@ -262,27 +268,24 @@ export function AuthDialog({
     }
 
     if (mode === "signup") {
-      if (!STUDENT_LOGIN_PATTERN.test(login)) {
+      if (!isStudentLogin(login)) {
         setStatus(copy.loginFormat);
         return;
       }
 
-      if (
-        !STUDENT_EMAIL_PATTERN.test(email) ||
-        email !== `${login}${STUDENT_EMAIL_DOMAIN}`
-      ) {
+      if (!isStudentEmailMatchingLogin(email, login)) {
         setStatus(copy.emailFormat);
         return;
       }
 
-      if (password.length < 8) {
+      if (password.length < STUDENT_IDENTITY.passwordMinLength) {
         setStatus(copy.passwordFormat);
         return;
       }
     }
 
     if (mode === "signin") {
-      if (!STUDENT_EMAIL_PATTERN.test(email)) {
+      if (!isStudentEmail(email)) {
         setStatus(copy.emailOnlyFormat);
         return;
       }
@@ -307,10 +310,8 @@ export function AuthDialog({
           email,
           password,
           login,
-          callbackURL: "/account",
-        } as Parameters<typeof authClient.signUp.email>[0] & {
-          login: string;
-        })).catch((error: unknown) => ({
+          callbackURL: APP_ROUTES.account,
+        } as Parameters<typeof authClient.signUp.email>[0] & { login: string })).catch((error: unknown) => ({
       error: {
         status: 0,
         message:
@@ -338,7 +339,7 @@ export function AuthDialog({
     if (mode === "signin") {
       onOpenChange(false);
       router.refresh();
-      router.push("/account");
+      router.push(APP_ROUTES.account);
       return;
     }
 
@@ -406,7 +407,7 @@ export function AuthDialog({
                 <input
                   name="login"
                   required
-                  placeholder="st055555"
+                  placeholder={STUDENT_IDENTITY.exampleLogin}
                   className="focus-ring mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm sm:h-11"
                 />
               </label>
@@ -417,7 +418,7 @@ export function AuthDialog({
                 <input
                   name="name"
                   required
-                  minLength={2}
+                  minLength={STUDENT_IDENTITY.nameMinLength}
                   placeholder={copy.namePlaceholder}
                   className="focus-ring mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm sm:h-11"
                 />
@@ -431,7 +432,7 @@ export function AuthDialog({
               name="email"
               required
               type="email"
-              placeholder="st055555@student.spbu.ru"
+              placeholder={getStudentEmailForLogin(STUDENT_IDENTITY.exampleLogin)}
               className="focus-ring mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm sm:h-11"
             />
           </label>
@@ -445,7 +446,7 @@ export function AuthDialog({
                 <input
                   name="password"
                   required
-                  minLength={8}
+                  minLength={STUDENT_IDENTITY.passwordMinLength}
                   type={showPassword ? "text" : "password"}
                   placeholder={copy.passwordPlaceholder}
                   className="focus-ring h-full flex-1 rounded-lg px-3 text-sm outline-none"
