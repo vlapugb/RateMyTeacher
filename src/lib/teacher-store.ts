@@ -311,6 +311,7 @@ export async function getPublicReviews(
     limit?: number;
     offset?: number;
     sort?: ReviewSortKey;
+    canModerate?: boolean;
   } = {},
 ) {
   const page = await getPublicReviewsPage({
@@ -319,6 +320,7 @@ export async function getPublicReviews(
     limit: options.limit ?? REVIEW_CONFIG.maxPageSize,
     offset: options.offset ?? 0,
     sort: options.sort ?? REVIEW_CONFIG.defaultSort,
+    canModerate: options.canModerate,
   });
 
   return page.reviews;
@@ -330,6 +332,7 @@ export async function getPublicReviewsPage(input: {
   limit: number;
   offset: number;
   sort: ReviewSortKey;
+  canModerate?: boolean;
 }): Promise<ReviewPage> {
   await ensureTeacherRuntimeTables();
 
@@ -349,7 +352,12 @@ export async function getPublicReviewsPage(input: {
 
   return {
     reviews: (result.rows as TeacherReviewRow[])
-      .map((row) => rowToPublicReview(row, row.user_id === input.userId))
+      .map((row) =>
+        rowToPublicReview(
+          row,
+          input.canModerate === true || row.user_id === input.userId,
+        ),
+      )
       .filter((review) => review.body.length > 0),
     total: Number(countRow?.total ?? 0),
   };
@@ -759,6 +767,22 @@ export async function deleteTeacherReview(teacherId: string, userId: string) {
     delete from teacher_reviews
     where teacher_id = ${teacherId}
       and user_id = ${userId}
+    returning id
+  `);
+
+  const deleted = result.rows.length > 0;
+
+  if (deleted) invalidateTeacherStatsCache();
+
+  return deleted;
+}
+
+export async function deleteTeacherReviewById(reviewId: string) {
+  await ensureTeacherRuntimeTables();
+
+  const result = await db.execute(sql`
+    delete from teacher_reviews
+    where id = ${reviewId}
     returning id
   `);
 
