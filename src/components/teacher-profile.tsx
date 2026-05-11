@@ -287,9 +287,12 @@ export function TeacherProfile({
       return;
     }
 
-    const response = await fetch(API_ROUTES.reviewsForTeacher(teacher.id), {
-      method: "DELETE",
-    }).catch(() => null);
+    const response = await fetch(
+      API_ROUTES.reviewForTeacherById(teacher.id, review.id),
+      {
+        method: "DELETE",
+      },
+    ).catch(() => null);
 
     if (!response?.ok) return;
 
@@ -297,7 +300,7 @@ export function TeacherProfile({
       current.filter((item) => item.id !== review.id),
     );
     setCommentsTotal((current) => Math.max(0, current - 1));
-    setOwnReview(null);
+    setOwnReview((current) => (current?.id === review.id ? null : current));
 
     fetch(API_ROUTES.teachers)
       .then((teachersResponse) =>

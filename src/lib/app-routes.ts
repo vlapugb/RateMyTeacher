@@ -27,6 +27,10 @@ export const API_ROUTES = {
   recentReviews: "/api/reviews/recent",
   reviewsForTeacher: (teacherId: string) =>
     `/api/reviews?teacherId=${encodeURIComponent(teacherId)}`,
+  reviewForTeacherById: (teacherId: string, reviewId: string) =>
+    `/api/reviews?teacherId=${encodeURIComponent(
+      teacherId,
+    )}&reviewId=${encodeURIComponent(reviewId)}`,
   reviewLike: (reviewId: string) =>
     `/api/reviews/${encodeURIComponent(reviewId)}/like`,
   authRequestPasswordReset: "/api/auth/request-password-reset",

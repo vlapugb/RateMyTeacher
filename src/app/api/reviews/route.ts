@@ -6,11 +6,13 @@ import { joinReviewTextParts } from "@/lib/teacher-model";
 import {
   createTeacherReview,
   deleteTeacherReview,
+  deleteTeacherReviewById,
   getOwnReview,
   getPublicReviewsPage,
   updateTeacherReview,
   type ReviewSortKey,
 } from "@/lib/teacher-store";
+import { isModeratorUser } from "@/lib/moderation";
 import {
   API_RATE_LIMITS,
   HTTP_STATUS,
@@ -67,6 +69,7 @@ export async function GET(request: Request) {
   const session = await auth.api.getSession({
     headers: request.headers,
   });
+  const canModerate = isModeratorUser(session?.user);
   const { searchParams } = new URL(request.url);
   const teacherId = searchParams.get("teacherId");
   const limit = parseBoundedInteger(searchParams.get("limit"), {
@@ -91,6 +94,7 @@ export async function GET(request: Request) {
       limit,
       offset,
       sort,
+      canModerate,
     }),
     session ? getOwnReview(teacherId, session.user.id) : null,
   ]);
@@ -266,10 +270,7 @@ export async function DELETE(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const teacherId = searchParams.get("teacherId");
-
-  if (!teacherId) {
-    return jsonMessage("Не указан преподаватель.", HTTP_STATUS.badRequest);
-  }
+  const reviewId = searchParams.get("reviewId");
 
   const session = await auth.api.getSession({
     headers: request.headers,
@@ -280,6 +281,22 @@ export async function DELETE(request: Request) {
       "Войдите, чтобы удалить оценку.",
       HTTP_STATUS.unauthorized,
     );
+  }
+
+  const canModerate = isModeratorUser(session.user);
+
+  if (canModerate && reviewId) {
+    const deleted = await deleteTeacherReviewById(reviewId);
+
+    if (!deleted) {
+      return jsonMessage("Оценка не найдена.", HTTP_STATUS.notFound);
+    }
+
+    return NextResponse.json({ ok: true, deleted: true });
+  }
+
+  if (!teacherId) {
+    return jsonMessage("Не указан преподаватель.", HTTP_STATUS.badRequest);
   }
 
   const deleted = await deleteTeacherReview(teacherId, session.user.id);
