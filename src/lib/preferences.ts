@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { STORAGE_KEYS } from "@/lib/app-config";
 
 export type ThemePreference = "system" | "light" | "dark";
 export type LanguagePreference = "ru" | "en" | "zh";
@@ -10,9 +11,9 @@ type Preferences = {
   language: LanguagePreference;
 };
 
-const THEME_KEY = "studradar:theme";
-const LANGUAGE_KEY = "studradar:language";
-const PREFERENCES_EVENT = "studradar:preferences";
+const THEME_KEY = STORAGE_KEYS.theme;
+const LANGUAGE_KEY = STORAGE_KEYS.language;
+const PREFERENCES_EVENT = STORAGE_KEYS.preferencesEvent;
 
 const defaultPreferences: Preferences = {
   theme: "system",
@@ -48,7 +49,7 @@ export function usePreferences() {
       applyPreferences(nextPreferences);
     };
 
-    queueMicrotask(sync);
+    sync();
     window.addEventListener(PREFERENCES_EVENT, sync);
     window.addEventListener("storage", sync);
     const media = window.matchMedia("(prefers-color-scheme: dark)");

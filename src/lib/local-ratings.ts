@@ -1,9 +1,11 @@
 "use client";
 
 import { useLayoutEffect, useMemo, useState } from "react";
+import { STORAGE_KEYS } from "@/lib/app-config";
+import { roundScore } from "@/lib/teacher-model";
 import type { MetricKey, Review, Teacher } from "@/lib/types";
 
-const STORAGE_KEY = "studradar:anonymous-ratings:v1";
+const STORAGE_KEY = STORAGE_KEYS.anonymousRatings;
 const STORAGE_EVENT = "studradar:ratings-updated";
 
 export type LocalRating = {
@@ -180,8 +182,4 @@ function applyLocalRatingsToTeacher(teacher: Teacher, ratings: LocalRating[]) {
     commentCount: nextCommentCount,
     scores,
   };
-}
-
-function roundScore(value: number) {
-  return Math.round(value * 100) / 100;
 }

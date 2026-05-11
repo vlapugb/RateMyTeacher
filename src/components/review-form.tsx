@@ -11,6 +11,15 @@ import { metrics, teachers } from "@/lib/mock-data";
 import { facultyText, localizeMetrics } from "@/lib/i18n";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 import type { MetricKey, Review } from "@/lib/types";
+import {
+  API_ROUTES,
+  APP_ROUTES,
+} from "@/lib/app-routes";
+import {
+  HTTP_STATUS,
+  RATING_SCALE,
+  REVIEW_CONFIG,
+} from "@/lib/app-config";
 import { cn } from "@/lib/utils";
 
 type ReviewFormProps = {
@@ -178,7 +187,7 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
   useEffect(() => {
     let active = true;
 
-    fetch(`/api/reviews?teacherId=${teacher.id}`)
+    fetch(API_ROUTES.reviewsForTeacher(teacher.id))
       .then((response) => (response.ok ? response.json() : null))
       .then((body: { ownReview?: Review | null } | null) => {
         if (!active || !body?.ownReview) return;
@@ -235,7 +244,7 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
       publishAnonymously: !user || publishAnonymously,
     };
 
-    const response = await fetch("/api/reviews", {
+    const response = await fetch(API_ROUTES.reviews, {
       method: ownReview ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -254,7 +263,11 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
     }
 
     setStatus(publishAnonymously ? copy.publishedAnonymous : copy.published);
-    router.push(`/teachers/${teacher.id}${hasComment ? "?tab=comments" : ""}`);
+    router.push(
+      hasComment
+        ? APP_ROUTES.teacherComments(teacher.id)
+        : APP_ROUTES.teacher(teacher.id),
+    );
     router.refresh();
   }
 
@@ -266,7 +279,7 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
     setSubmitting(true);
     setStatus(null);
 
-    const response = await fetch(`/api/reviews?teacherId=${teacher.id}`, {
+    const response = await fetch(API_ROUTES.reviewsForTeacher(teacher.id), {
       method: "DELETE",
     }).catch(() => null);
 
@@ -281,7 +294,7 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
     setScores(defaultScores());
     setDraft(defaultDraft);
     setPublishAnonymously(false);
-    router.push(`/teachers/${teacher.id}`);
+    router.push(APP_ROUTES.teacher(teacher.id));
     router.refresh();
   }
 
@@ -289,7 +302,7 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
     <form className="page-soft-enter px-5 pb-8 md:px-8" onSubmit={handleSubmit}>
       <section className="mt-6">
         <Link
-          href={`/teachers/${teacher.id}`}
+          href={APP_ROUTES.teacher(teacher.id)}
           className="mb-5 inline-flex items-center gap-2 text-sm font900 text-slate-600 hover:text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -436,7 +449,10 @@ function RatingInput({
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex gap-1">
-        {[1, 2, 3, 4, 5].map((score) => (
+        {Array.from(
+          { length: RATING_SCALE.stars },
+          (_, index) => index + 1,
+        ).map((score) => (
           <button
             key={score}
             type="button"
@@ -480,7 +496,7 @@ function TextArea({
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        maxLength={500}
+        maxLength={REVIEW_CONFIG.textMaxLength}
         aria-label={ariaLabel}
         placeholder={placeholder}
         className="focus-ring min-h-32 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font700 leading-6 text-foreground placeholder:text-slate-400"
@@ -497,9 +513,9 @@ function getSubmitErrorMessage(
   status: number,
   copy: (typeof reviewFormCopy)[LanguagePreference],
 ) {
-  if (status === 403) return copy.verifyEmail;
-  if (status === 409) return copy.alreadyReviewed;
-  if (status === 404) return copy.editMissing;
+  if (status === HTTP_STATUS.forbidden) return copy.verifyEmail;
+  if (status === HTTP_STATUS.conflict) return copy.alreadyReviewed;
+  if (status === HTTP_STATUS.notFound) return copy.editMissing;
 
   return copy.submitFailed;
 }

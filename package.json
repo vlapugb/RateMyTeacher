@@ -7,9 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "email:test": "node scripts/send-test-email.mjs",
-    "gmail:auth-url": "node scripts/gmail-oauth.mjs auth-url",
-    "gmail:exchange": "node scripts/gmail-oauth.mjs exchange",
+    "email:test": "npx tsx scripts/send-test-email.ts",
+    "gmail:auth-url": "npx tsx scripts/gmail-oauth.ts auth-url",
+    "gmail:exchange": "npx tsx scripts/gmail-oauth.ts exchange",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
