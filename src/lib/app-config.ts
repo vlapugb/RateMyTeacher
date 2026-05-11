@@ -61,6 +61,7 @@ export const REVIEW_IDENTITY = {
 export const CATALOG_CONFIG = {
   pageSize: 6,
   defaultSort: "rating",
+  defaultSortDirection: "desc",
   introDismissDelayMs: 12_000,
   countDisplayLimit: 1000,
 } as const;
