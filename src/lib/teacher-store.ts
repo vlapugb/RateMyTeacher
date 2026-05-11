@@ -51,6 +51,7 @@ type TeacherStatsRow = {
 };
 
 export type ReviewSortKey = "newest" | "highest" | "lowest";
+export type RecentReviewKind = "reviews" | "comments";
 
 type ReviewPage = {
   reviews: Review[];
@@ -352,6 +353,85 @@ export async function getPublicReviewsPage(input: {
       .filter((review) => review.body.length > 0),
     total: Number(countRow?.total ?? 0),
   };
+}
+
+export async function getRecentPublicReviews(input: {
+  kind: RecentReviewKind;
+  userId?: string;
+  limit: number;
+}) {
+  await ensureTeacherRuntimeTables();
+
+  const limit = Math.min(REVIEW_CONFIG.maxPageSize, Math.max(1, input.limit));
+  const result =
+    input.kind === "comments"
+      ? await getRecentPublicCommentRows(input.userId, limit)
+      : await getRecentPublicRatingRows(input.userId, limit);
+
+  return (result.rows as TeacherReviewRow[]).map((row) =>
+    rowToPublicReview(row, row.user_id === input.userId),
+  );
+}
+
+function getRecentPublicCommentRows(userId: string | undefined, limit: number) {
+  return db.execute(sql`
+    select
+      review.*,
+      coalesce(likes.like_count, 0) as like_count,
+      case
+        when ${userId ?? null}::text is null then false
+        else exists (
+          select 1
+          from teacher_review_likes own_like
+          where own_like.review_id = review.id
+            and own_like.user_id = ${userId ?? null}
+        )
+      end as liked_by_me
+    from teacher_reviews review
+    left join lateral (
+      select count(*) as like_count
+      from teacher_review_likes review_like
+      where review_like.review_id = review.id
+    ) likes on true
+    where review.status = ${REVIEW_CONFIG.approvedStatus}
+      and length(trim(review.comment || review.liked || review.difficult || review.exam_process || review.advice)) > 0
+    order by review.created_at desc
+    limit ${limit}
+  `);
+}
+
+function getRecentPublicRatingRows(userId: string | undefined, limit: number) {
+  return db.execute(sql`
+    select
+      review.*,
+      coalesce(likes.like_count, 0) as like_count,
+      case
+        when ${userId ?? null}::text is null then false
+        else exists (
+          select 1
+          from teacher_review_likes own_like
+          where own_like.review_id = review.id
+            and own_like.user_id = ${userId ?? null}
+        )
+      end as liked_by_me
+    from teacher_reviews review
+    left join lateral (
+      select count(*) as like_count
+      from teacher_review_likes review_like
+      where review_like.review_id = review.id
+    ) likes on true
+    where review.status = ${REVIEW_CONFIG.approvedStatus}
+      and (
+        review.knowledge is not null
+        or review.communication is not null
+        or review.leniency is not null
+        or review.fairness is not null
+        or review.vibe is not null
+        or review.overall is not null
+      )
+    order by review.created_at desc
+    limit ${limit}
+  `);
 }
 
 function getPublicReviewsPageRows(

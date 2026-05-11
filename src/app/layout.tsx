@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
+import { STORAGE_KEYS } from "@/lib/app-config";
 
 const YANDEX_METRIKA_ID = 109136434;
 
@@ -16,8 +17,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
       <body>
+        <Script id="preferences-bootstrap" strategy="beforeInteractive">
+          {`
+            (function() {
+              try {
+                var themePreference = localStorage.getItem('${STORAGE_KEYS.theme}') || 'system';
+                var language = localStorage.getItem('${STORAGE_KEYS.language}') || 'ru';
+                var resolvedTheme = themePreference === 'system'
+                  ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                  : themePreference;
+                document.documentElement.dataset.theme = resolvedTheme;
+                document.documentElement.dataset.themePreference = themePreference;
+                document.documentElement.lang = language;
+              } catch (error) {}
+            })();
+          `}
+        </Script>
         <Script id="yandex-metrika" strategy="afterInteractive">
           {`
             (function(m,e,t,r,i,k,a){

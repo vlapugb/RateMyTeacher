@@ -24,6 +24,7 @@ export const API_ROUTES = {
   favorites: "/api/favorites",
   accountSummary: "/api/account/summary",
   reviews: "/api/reviews",
+  recentReviews: "/api/reviews/recent",
   reviewsForTeacher: (teacherId: string) =>
     `/api/reviews?teacherId=${encodeURIComponent(teacherId)}`,
   reviewLike: (reviewId: string) =>
@@ -39,6 +40,7 @@ export const TEACHER_QUERY_PARAM = {
   from: "from",
   page: "page",
   query: "q",
+  order: "order",
   sort: "sort",
   tab: "tab",
 } as const;

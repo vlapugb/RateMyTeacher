@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowDownWideNarrow,
+  ArrowUpWideNarrow,
   ChevronLeft,
   ChevronRight,
   MessageSquareText,
@@ -14,13 +17,15 @@ import {
 import { metrics, teachers } from "@/lib/mock-data";
 import { TeacherCard } from "@/components/teacher-card";
 import { cn } from "@/lib/utils";
-import type { MetricKey, Teacher } from "@/lib/types";
+import type { MetricKey, Review, Teacher } from "@/lib/types";
 import { resetTeachersRuntimeData } from "@/lib/teacher-model";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
-import { localizeMetrics } from "@/lib/i18n";
+import { formatRelativeTime, localizeMetrics } from "@/lib/i18n";
 import {
   getCatalogHref,
+  readSavedCatalogState,
   writeStoredCatalogHref,
+  writeSavedCatalogState,
 } from "@/lib/catalog-navigation";
 import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
 import { CATALOG_CONFIG, STORAGE_KEYS } from "@/lib/app-config";
@@ -30,13 +35,17 @@ const TEACHERS_CACHE_KEY = "studradar:catalog-teachers";
 const SCROLL_STORAGE_KEY = "studradar:catalog-scroll";
 
 type SortKey = "rating" | "reviewCount" | "commentCount" | MetricKey;
+type SortDirection = "desc" | "asc";
+type RecentActivityKind = "reviews" | "comments";
 const PAGE_SIZE = CATALOG_CONFIG.pageSize;
 const INTRO_STORAGE_KEY = STORAGE_KEYS.catalogIntroDismissed;
 const DEFAULT_SORT: SortKey = CATALOG_CONFIG.defaultSort;
+const DEFAULT_SORT_DIRECTION: SortDirection = CATALOG_CONFIG.defaultSortDirection;
 
 type CatalogViewProps = {
   initialQuery?: string;
   initialSort?: string;
+  initialOrder?: string;
   initialPage?: number;
 };
 
@@ -54,6 +63,21 @@ const catalogCopy: Record<
     byRating: string;
     byComments: string;
     byReviews: string;
+    descending: string;
+    ascending: string;
+    teachersAction: string;
+    reviewsAction: string;
+    commentsAction: string;
+    recentReviewsTitle: string;
+    recentCommentsTitle: string;
+    recentSubtitle: string;
+    hideRecent: string;
+    recentLoading: string;
+    recentEmpty: string;
+    recentFailed: string;
+    ratingOnly: string;
+    unknownTeacher: string;
+    activityForTeacher: (teacherName: string) => string;
     introTitle: string;
     introText: string;
     introDismiss: string;
@@ -78,6 +102,21 @@ const catalogCopy: Record<
     byRating: "По рейтингу",
     byComments: "По комментариям",
     byReviews: "По оценкам",
+    descending: "По убыванию",
+    ascending: "По возрастанию",
+    teachersAction: "Перейти к списку преподавателей",
+    reviewsAction: "Показать последние оценки",
+    commentsAction: "Показать последние комментарии",
+    recentReviewsTitle: "Последние оценки",
+    recentCommentsTitle: "Последние комментарии",
+    recentSubtitle: "10 свежих публикаций по всем преподавателям",
+    hideRecent: "Скрыть",
+    recentLoading: "Загружаем последние публикации...",
+    recentEmpty: "Пока ничего нет",
+    recentFailed: "Не удалось загрузить последние публикации.",
+    ratingOnly: "Оценка без комментария",
+    unknownTeacher: "Преподаватель",
+    activityForTeacher: (teacherName) => `Кому: ${teacherName}`,
     introTitle: "Зачем нужен StudRadar?",
     introText:
       "Студенты делятся реальным опытом о преподавателях, чтобы вместо слухов из чатов была прозрачная и честная карта качества образования.",
@@ -102,6 +141,21 @@ const catalogCopy: Record<
     byRating: "By rating",
     byComments: "By comments",
     byReviews: "By reviews",
+    descending: "Descending",
+    ascending: "Ascending",
+    teachersAction: "Go to teacher list",
+    reviewsAction: "Show latest ratings",
+    commentsAction: "Show latest comments",
+    recentReviewsTitle: "Latest ratings",
+    recentCommentsTitle: "Latest comments",
+    recentSubtitle: "10 fresh posts across all teachers",
+    hideRecent: "Hide",
+    recentLoading: "Loading latest posts...",
+    recentEmpty: "Nothing here yet",
+    recentFailed: "Could not load latest posts.",
+    ratingOnly: "Rating without a comment",
+    unknownTeacher: "Teacher",
+    activityForTeacher: (teacherName) => `For: ${teacherName}`,
     introTitle: "Why StudRadar?",
     introText:
       "Students share real teacher experience, so course choices are based on a transparent map instead of chat rumors.",
@@ -126,6 +180,21 @@ const catalogCopy: Record<
     byRating: "按评分",
     byComments: "按评论",
     byReviews: "按评价数",
+    descending: "降序",
+    ascending: "升序",
+    teachersAction: "前往教师列表",
+    reviewsAction: "显示最新评分",
+    commentsAction: "显示最新评论",
+    recentReviewsTitle: "最新评分",
+    recentCommentsTitle: "最新评论",
+    recentSubtitle: "所有教师的 10 条最新发布",
+    hideRecent: "隐藏",
+    recentLoading: "正在加载最新发布...",
+    recentEmpty: "暂无内容",
+    recentFailed: "无法加载最新发布。",
+    ratingOnly: "无评论评分",
+    unknownTeacher: "教师",
+    activityForTeacher: (teacherName) => `对象：${teacherName}`,
     introTitle: "为什么使用 StudRadar？",
     introText: "学生分享真实的教师体验，让选课不再依赖聊天传闻。",
     introDismiss: "知道了，不再显示",
@@ -142,6 +211,7 @@ const catalogCopy: Record<
 export function CatalogView({
   initialQuery = "",
   initialSort,
+  initialOrder,
   initialPage = 1,
 }: CatalogViewProps) {
   const { language } = usePreferences();
@@ -150,14 +220,24 @@ export function CatalogView({
     () => localizeMetrics(metrics, language),
     [language],
   );
-  const [query, setQuery] = useState(initialQuery);
+  const savedState = typeof window === "undefined" ? null : readSavedCatalogState();
+  const effectiveQuery = initialQuery || savedState?.query || "";
+  const effectiveSort = initialSort || savedState?.sort || undefined;
+  const effectiveOrder = initialOrder || savedState?.order || undefined;
+  const effectivePage = initialPage > 1 ? initialPage : (savedState?.page ?? 1);
+
+  const [query, setQuery] = useState(effectiveQuery);
   const [sortKey, setSortKey] = useState<SortKey>(
-    () => (isSortKey(initialSort) ? initialSort : DEFAULT_SORT),
+    () => (isSortKey(effectiveSort) ? effectiveSort : DEFAULT_SORT),
+  );
+  const [sortDirection, setSortDirection] = useState<SortDirection>(
+    () =>
+      isSortDirection(effectiveOrder) ? effectiveOrder : DEFAULT_SORT_DIRECTION,
   );
   const [currentPage, setCurrentPage] = useState(
     () =>
-      Number.isFinite(initialPage) && initialPage > 0
-        ? Math.floor(initialPage)
+      Number.isFinite(effectivePage) && effectivePage > 0
+        ? Math.floor(effectivePage)
         : 1,
   );
   const [showIntro, setShowIntro] = useState(() => {
@@ -165,13 +245,38 @@ export function CatalogView({
 
     return window.localStorage.getItem(INTRO_STORAGE_KEY) !== "true";
   });
+  const [initialCachedTeachers] = useState(() => readCachedTeachers());
   const [catalogTeachers, setCatalogTeachers] = useState<Teacher[]>(
-    resetTeachersRuntimeData(teachers),
+    () => initialCachedTeachers ?? resetTeachersRuntimeData(teachers),
   );
-  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(
+    () => !initialCachedTeachers,
+  );
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [activeActivity, setActiveActivity] =
+    useState<RecentActivityKind | null>(null);
+  const [recentActivity, setRecentActivity] = useState<
+    Record<RecentActivityKind, Review[]>
+  >({
+    reviews: [],
+    comments: [],
+  });
+  const [recentActivityStatus, setRecentActivityStatus] = useState<
+    Record<RecentActivityKind, "idle" | "loading" | "ready" | "error">
+  >({
+    reviews: "idle",
+    comments: "idle",
+  });
+  const teacherListRef = useRef<HTMLElement | null>(null);
+  const recentActivityStatusRef = useRef(recentActivityStatus);
 
   useEffect(() => {
+    recentActivityStatusRef.current = recentActivityStatus;
+  }, [recentActivityStatus]);
+
+  useEffect(() => {
+    if (initialCachedTeachers) return;
+
     const cached = readCachedTeachers();
     if (cached) {
       queueMicrotask(() => {
@@ -179,7 +284,7 @@ export function CatalogView({
         setIsLoadingCatalog(false);
       });
     }
-  }, []);
+  }, [initialCachedTeachers]);
 
   useEffect(() => {
     if (!showIntro) return;
@@ -227,23 +332,93 @@ export function CatalogView({
   }, [copy.loadFailed]);
 
   useEffect(() => {
-    const savedY = readScrollPosition();
-    if (savedY > 0 && catalogTeachers.length > 0) {
-      requestAnimationFrame(() => window.scrollTo(0, savedY));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!activeActivity) return;
+    if (recentActivityStatusRef.current[activeActivity] !== "idle") return;
+
+    let active = true;
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      kind: activeActivity,
+      limit: "10",
+    });
+
+    setRecentActivityStatus((current) => ({
+      ...current,
+      [activeActivity]: "loading",
+    }));
+
+    fetch(`${API_ROUTES.recentReviews}?${params.toString()}`, {
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { reviews?: Review[] } | null) => {
+        if (!active) return;
+
+        if (!body?.reviews) {
+          setRecentActivityStatus((current) => ({
+            ...current,
+            [activeActivity]: "error",
+          }));
+          return;
+        }
+
+        setRecentActivity((current) => ({
+          ...current,
+          [activeActivity]: body.reviews ?? [],
+        }));
+        setRecentActivityStatus((current) => ({
+          ...current,
+          [activeActivity]: "ready",
+        }));
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        console.warn("Failed to load recent reviews", error);
+        if (active) {
+          setRecentActivityStatus((current) => ({
+            ...current,
+            [activeActivity]: "error",
+          }));
+        }
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [activeActivity]);
 
   useEffect(() => {
+    const handlePageHide = () => {
+      saveScrollPosition(window.scrollY);
+    };
     const handleBeforeUnload = () => {
       saveScrollPosition(window.scrollY);
     };
+    window.addEventListener("pagehide", handlePageHide);
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, []);
 
-  const saveCurrentScroll = useCallback(() => {
-    saveScrollPosition(window.scrollY);
+  const restoredScrollRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (restoredScrollRef.current) return;
+
+    restoredScrollRef.current = true;
+    const savedY = readScrollPosition();
+    if (savedY > 0) {
+      jumpToScrollPosition(savedY);
+      const frame = window.requestAnimationFrame(() => {
+        jumpToScrollPosition(savedY);
+        clearScrollPosition();
+      });
+
+      return () => window.cancelAnimationFrame(frame);
+    }
   }, []);
 
   const totalReviews = useMemo(
@@ -258,6 +433,10 @@ export function CatalogView({
       ),
     [catalogTeachers],
   );
+  const teacherLookup = useMemo(
+    () => new Map(catalogTeachers.map((teacher) => [teacher.id, teacher])),
+    [catalogTeachers],
+  );
 
   const filteredTeachers = useMemo(() => {
     return catalogTeachers
@@ -266,9 +445,14 @@ export function CatalogView({
         return haystack.includes(query.trim().toLowerCase());
       })
       .sort((left, right) => {
-        return getSortValue(right, sortKey) - getSortValue(left, sortKey);
+        const valueDiff = getSortValue(left, sortKey) - getSortValue(right, sortKey);
+        if (valueDiff !== 0) {
+          return sortDirection === "asc" ? valueDiff : -valueDiff;
+        }
+
+        return left.fullName.localeCompare(right.fullName);
       });
-  }, [catalogTeachers, query, sortKey]);
+  }, [catalogTeachers, query, sortDirection, sortKey]);
   const pageCount = Math.max(1, Math.ceil(filteredTeachers.length / PAGE_SIZE));
   const visiblePage = Math.min(currentPage, pageCount);
   const visibleTeachers = filteredTeachers.slice(
@@ -283,8 +467,21 @@ export function CatalogView({
   const catalogHref = getCatalogHref({
     query,
     sortKey,
+    sortDirection,
     page: visiblePage,
   });
+
+  const saveCurrentScroll = useCallback(() => {
+    saveScrollPosition(window.scrollY);
+    writeStoredCatalogHref(catalogHref);
+    writeSavedCatalogState({
+      query,
+      sort: sortKey,
+      order: sortDirection,
+      page: visiblePage,
+    });
+    window.history.replaceState(window.history.state, "", catalogHref);
+  }, [catalogHref, query, sortDirection, sortKey, visiblePage]);
 
   const canGoPrev = visiblePage > 1;
   const canGoNext = visiblePage < pageCount;
@@ -310,12 +507,28 @@ export function CatalogView({
     canGoNext,
   });
 
-  useEffect(() => {
+  const scrollToTeacherList = useCallback(() => {
+    setActiveActivity(null);
+    teacherListRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
+
+  const toggleRecentActivity = useCallback((kind: RecentActivityKind) => {
+    setRecentActivityStatus((current) =>
+      current[kind] === "error" ? { ...current, [kind]: "idle" } : current,
+    );
+    setActiveActivity((current) => (current === kind ? null : kind));
+  }, []);
+
+  useLayoutEffect(() => {
     if (typeof window === "undefined") return;
 
     const nextHref = getCatalogHref({
       query,
       sortKey,
+      sortDirection,
       page: visiblePage,
     });
 
@@ -323,10 +536,16 @@ export function CatalogView({
       window.history.replaceState(window.history.state, "", nextHref);
     }
     writeStoredCatalogHref(nextHref);
-  }, [query, sortKey, visiblePage]);
+    writeSavedCatalogState({
+      query,
+      sort: sortKey,
+      order: sortDirection,
+      page: visiblePage,
+    });
+  }, [query, sortDirection, sortKey, visiblePage]);
 
   return (
-    <div className="page-soft-enter px-3 pb-6 sm:px-5 sm:pb-8 md:px-8">
+    <div className="px-3 pb-6 sm:px-5 sm:pb-8 md:px-8">
       <section className="pt-4 sm:pt-6">
         <div className="max-w-3xl">
           <h1 className="text-2xl font900 tracking-tight text-foreground sm:text-4xl">
@@ -337,26 +556,70 @@ export function CatalogView({
           </h1>
         </div>
 
-        <div className="mt-4 grid w-full max-w-md grid-cols-3 gap-2 sm:mt-6 sm:gap-3">
-          {([
-            { Icon: UsersRound, value: catalogTeachers.length, label: copy.teachers },
-            { Icon: Star, value: totalReviews, label: copy.reviews },
-            { Icon: MessageSquareText, value: totalComments, label: copy.comments },
-          ] as const).map(({ Icon, value, label }) => (
-            <div
-              key={label}
-              className="overflow-hidden rounded-lg border border-line bg-white px-2.5 py-2.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md sm:px-3 sm:py-3"
-            >
-              <Icon className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
-              <div className="mt-1.5 text-lg font900 text-foreground tabular-nums sm:mt-2 sm:text-xl">
-                {formatCappedCount(value)}
-              </div>
-              <div className="mt-0.5 truncate text-[10px] font800 text-slate-500 sm:text-xs">
-                {label}
-              </div>
-            </div>
-          ))}
+        <div className="mt-4 grid w-full max-w-3xl grid-cols-3 gap-2 sm:mt-6 sm:gap-3">
+          <SummaryButton
+            Icon={UsersRound}
+            value={catalogTeachers.length}
+            label={copy.teachers}
+            action={copy.teachersAction}
+            onClick={scrollToTeacherList}
+          />
+          <SummaryButton
+            Icon={Star}
+            value={totalReviews}
+            label={copy.reviews}
+            action={copy.reviewsAction}
+            active={activeActivity === "reviews"}
+            onClick={() => toggleRecentActivity("reviews")}
+          />
+          <SummaryButton
+            Icon={MessageSquareText}
+            value={totalComments}
+            label={copy.comments}
+            action={copy.commentsAction}
+            active={activeActivity === "comments"}
+            onClick={() => toggleRecentActivity("comments")}
+          />
         </div>
+
+        {activeActivity && (
+          <section
+            key={activeActivity}
+            className="mt-3 max-w-3xl animate-soft-reveal overflow-hidden rounded-lg border border-line bg-white shadow-sm sm:mt-4"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-line px-3 py-3 sm:px-4">
+              <div className="min-w-0">
+                <h2 className="text-sm font900 text-foreground sm:text-base">
+                  {activeActivity === "reviews"
+                    ? copy.recentReviewsTitle
+                    : copy.recentCommentsTitle}
+                </h2>
+                <p className="mt-0.5 text-xs font700 text-muted">
+                  {copy.recentSubtitle}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="focus-ring grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-primary-soft hover:text-primary"
+                aria-label={copy.hideRecent}
+                title={copy.hideRecent}
+                onClick={() => setActiveActivity(null)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <RecentActivityList
+              activity={activeActivity}
+              items={recentActivity[activeActivity]}
+              status={recentActivityStatus[activeActivity]}
+              teacherLookup={teacherLookup}
+              catalogHref={catalogHref}
+              copy={copy}
+              language={language}
+              onLinkClick={saveCurrentScroll}
+            />
+          </section>
+        )}
 
         <div className="mt-5 flex max-w-3xl items-center gap-2 rounded-lg border border-line bg-white px-3 py-2.5 shadow-sm sm:mt-8 sm:gap-3 sm:px-4 sm:py-3">
           <Search className="h-5 w-5 shrink-0 text-slate-400 sm:h-6 sm:w-6" />
@@ -371,33 +634,55 @@ export function CatalogView({
           />
         </div>
 
-        <div className="mt-4 flex flex-col items-stretch gap-2 sm:mt-5 sm:flex-row sm:items-center sm:gap-3">
+        <div className="mt-4 flex flex-col items-stretch gap-2 sm:mt-5 lg:flex-row lg:items-center lg:gap-3">
           <button
             type="button"
-            className="rounded-lg border border-primary bg-primary px-4 py-2 text-sm font900 text-white shadow-sm"
+            className="rounded-lg border border-primary bg-primary px-4 py-2 text-sm font900 text-white shadow-sm lg:w-auto"
           >
             {copy.all}
           </button>
-          <label className="flex items-center justify-between gap-2 text-sm font900 text-slate-600 sm:ml-auto">
-            {copy.sorting}
-            <select
-              value={sortKey}
-              onChange={(event) => {
-                setSortKey(event.target.value as SortKey);
+          <div className="flex min-w-0 items-center gap-2 lg:ml-auto">
+            <label className="flex min-w-0 flex-1 items-center justify-between gap-2 text-sm font900 text-slate-600">
+              <span className="shrink-0">{copy.sorting}</span>
+              <select
+                value={sortKey}
+                onChange={(event) => {
+                  setSortKey(event.target.value as SortKey);
+                  setCurrentPage(1);
+                }}
+                className="focus-ring h-10 min-w-0 flex-1 rounded-lg border border-line bg-white px-3 text-sm font900 text-slate-700 sm:w-56 sm:flex-none"
+              >
+                <option value="rating">{copy.byRating}</option>
+                <option value="commentCount">{copy.byComments}</option>
+                <option value="reviewCount">{copy.byReviews}</option>
+                {localizedMetrics.map((metric) => (
+                  <option key={metric.key} value={metric.key}>
+                    {metric.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              aria-label={
+                sortDirection === "desc" ? copy.descending : copy.ascending
+              }
+              title={sortDirection === "desc" ? copy.descending : copy.ascending}
+              onClick={() => {
+                setSortDirection((current) =>
+                  current === "desc" ? "asc" : "desc",
+                );
                 setCurrentPage(1);
               }}
-              className="focus-ring h-10 min-w-0 flex-1 rounded-lg border border-line bg-white px-3 text-sm font900 text-slate-700 sm:flex-none"
+              className="focus-ring grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-line bg-white text-primary shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:bg-primary-soft"
             >
-              <option value="rating">{copy.byRating}</option>
-              <option value="commentCount">{copy.byComments}</option>
-              <option value="reviewCount">{copy.byReviews}</option>
-              {localizedMetrics.map((metric) => (
-                <option key={metric.key} value={metric.key}>
-                  {metric.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              {sortDirection === "desc" ? (
+                <ArrowDownWideNarrow className="h-5 w-5" />
+              ) : (
+                <ArrowUpWideNarrow className="h-5 w-5" />
+              )}
+            </button>
+          </div>
         </div>
 
         {(isLoadingCatalog || catalogError) && (
@@ -446,10 +731,13 @@ export function CatalogView({
       </section>
 
       <section
-        className="mt-5 grid gap-3 stagger-list sm:mt-7 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3"
+        id="teacher-list"
+        ref={teacherListRef}
+        className="mt-5 grid scroll-mt-24 gap-3 stagger-list sm:mt-7 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3"
+        style={swipe.containerStyle}
         onTouchStart={swipe.onTouchStart}
         onTouchMove={swipe.onTouchMove}
-        onTouchEnd={swipe.onTouchEnd}
+        onTouchEnd={(event) => swipe.onTouchEnd(event)}
       >
         {visibleTeachers.map((teacher) => (
           <TeacherCard
@@ -468,7 +756,7 @@ export function CatalogView({
         ))}
       </section>
 
-      <footer className="mt-8 flex flex-col gap-3 text-xs font800 text-slate-400 sm:mt-12 sm:text-sm md:flex-row md:items-center md:justify-between">
+      <footer className="mt-8 flex flex-col gap-3 pb-[calc(5rem+env(safe-area-inset-bottom))] text-xs font800 text-slate-400 sm:mt-12 sm:pb-1 sm:text-sm md:flex-row md:items-center md:justify-between">
         <span>
           {copy.shown} {start}–{end} {copy.of} {filteredTeachers.length}{" "}
           {copy.teachers}
@@ -525,6 +813,131 @@ export function CatalogView({
   );
 }
 
+function SummaryButton({
+  Icon,
+  value,
+  label,
+  action,
+  active = false,
+  onClick,
+}: {
+  Icon: typeof UsersRound;
+  value: number;
+  label: string;
+  action: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={action}
+      title={action}
+      aria-expanded={active || undefined}
+      onClick={onClick}
+      className={cn(
+        "focus-ring min-w-0 overflow-hidden rounded-lg border border-line bg-white px-2.5 py-2.5 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:shadow-md sm:px-3 sm:py-3",
+        active && "border-primary bg-primary-soft shadow-md",
+      )}
+    >
+      <Icon className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
+      <div className="mt-1.5 text-lg font900 text-foreground tabular-nums sm:mt-2 sm:text-xl">
+        {formatCappedCount(value)}
+      </div>
+      <div className="mt-0.5 truncate text-[10px] font800 text-slate-500 sm:text-xs">
+        {label}
+      </div>
+    </button>
+  );
+}
+
+function RecentActivityList({
+  activity,
+  items,
+  status,
+  teacherLookup,
+  catalogHref,
+  copy,
+  language,
+  onLinkClick,
+}: {
+  activity: RecentActivityKind;
+  items: Review[];
+  status: "idle" | "loading" | "ready" | "error";
+  teacherLookup: Map<string, Teacher>;
+  catalogHref: string;
+  copy: (typeof catalogCopy)[LanguagePreference];
+  language: LanguagePreference;
+  onLinkClick: () => void;
+}) {
+  if (status === "loading" || status === "idle") {
+    return (
+      <div className="animate-soft-reveal px-3 py-4 text-sm font800 text-muted sm:px-4">
+        {copy.recentLoading}
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="animate-soft-reveal px-3 py-4 text-sm font800 text-danger sm:px-4">
+        {copy.recentFailed}
+      </div>
+    );
+  }
+
+  if (!items.length) {
+    return (
+      <div className="animate-soft-reveal px-3 py-4 text-sm font800 text-muted sm:px-4">
+        {copy.recentEmpty}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-2 p-3 stagger-list-slow sm:grid-cols-2 sm:p-4">
+      {items.map((review) => {
+        const teacher = teacherLookup.get(review.teacherId);
+        const teacherName = teacher?.shortName ?? copy.unknownTeacher;
+        const body = review.body.trim() || copy.ratingOnly;
+
+        return (
+          <Link
+            key={review.id}
+            href={APP_ROUTES.teacherWithCatalog(review.teacherId, catalogHref)}
+            onClick={onLinkClick}
+            className="interactive-card block min-w-0 rounded-lg border border-line bg-panel p-3 transition hover:border-primary"
+          >
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <span className="line-clamp-2 text-xs font900 leading-4 text-primary">
+                {copy.activityForTeacher(teacherName)}
+              </span>
+              <span className="shrink-0 text-[10px] font800 text-slate-400">
+                {formatRelativeTime(review.createdAt, language)}
+              </span>
+            </div>
+            <div className="mt-2 flex min-w-0 items-start gap-2">
+              {review.hasRating === true && (
+                <span className="shrink-0 rounded-md bg-amber-50 px-2 py-1 text-xs font900 text-warning">
+                  ★ {review.rating}
+                </span>
+              )}
+              <p className="line-clamp-3 min-w-0 text-sm font700 leading-5 text-slate-700">
+                {body}
+              </p>
+            </div>
+            {activity === "comments" && review.hasRating === true && (
+              <div className="mt-2 text-[11px] font800 text-muted">
+                {copy.byRating}: {review.rating}
+              </div>
+            )}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 type PaginationItem = number | "gap-left" | "gap-right";
 
 function getPaginationItems(currentPage: number, pageCount: number) {
@@ -563,7 +976,7 @@ function getSortValue(teacher: Teacher, sortKey: SortKey) {
     return teacher.rating;
   }
 
-  return teacher.scores[sortKey];
+  return teacher.scores[sortKey] ?? 0;
 }
 
 function isSortKey(value: string | null | undefined): value is SortKey {
@@ -573,6 +986,12 @@ function isSortKey(value: string | null | undefined): value is SortKey {
     value === "commentCount" ||
     metrics.some((metric) => metric.key === value)
   );
+}
+
+function isSortDirection(
+  value: string | null | undefined,
+): value is SortDirection {
+  return value === "asc" || value === "desc";
 }
 
 function formatCappedCount(value: number) {
@@ -621,5 +1040,27 @@ function readScrollPosition(): number {
     );
   } catch {
     return 0;
+  }
+}
+
+function jumpToScrollPosition(y: number) {
+  const root = document.documentElement;
+  const body = document.body;
+  const previousRootBehavior = root.style.scrollBehavior;
+  const previousBodyBehavior = body.style.scrollBehavior;
+
+  root.style.scrollBehavior = "auto";
+  body.style.scrollBehavior = "auto";
+  window.scrollTo({ left: 0, top: y, behavior: "auto" });
+  root.style.scrollBehavior = previousRootBehavior;
+  body.style.scrollBehavior = previousBodyBehavior;
+}
+
+function clearScrollPosition() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(SCROLL_STORAGE_KEY);
+  } catch {
+    // ignore
   }
 }

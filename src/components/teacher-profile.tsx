@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   BookOpen,
@@ -28,6 +29,7 @@ import type { Review, Teacher } from "@/lib/types";
 import { readStoredCatalogHref } from "@/lib/catalog-navigation";
 import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
 import { REVIEW_CONFIG, SHARE_COPIED_DISPLAY_MS } from "@/lib/app-config";
+import { useSwipeNavigation } from "@/lib/swipe-navigation";
 
 export type TeacherTab = "ratings" | "courses";
 
@@ -164,6 +166,7 @@ export function TeacherProfile({
   baseReviews,
   catalogHref = APP_ROUTES.teachers,
 }: TeacherProfileProps) {
+  const router = useRouter();
   const { language } = usePreferences();
   const copy = profileCopy[language];
   const [teacher, setTeacher] = useState(() => resetTeacherRuntimeData(baseTeacher));
@@ -175,6 +178,16 @@ export function TeacherProfile({
   const [commentSort, setCommentSort] = useState<CommentSortKey>("newest");
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [backHref, setBackHref] = useState(catalogHref);
+  const goBackToCatalog = useCallback(() => {
+    router.replace(backHref, { scroll: false });
+  }, [backHref, router]);
+  const profileSwipe = useSwipeNavigation({
+    onPrev: goBackToCatalog,
+    onNext: () => undefined,
+    canGoPrev: true,
+    canGoNext: false,
+    blockNativeBackSwipe: true,
+  });
 
   useEffect(() => {
     queueMicrotask(() =>
@@ -321,10 +334,20 @@ export function TeacherProfile({
   }
 
   return (
-    <div className="page-soft-enter px-5 pb-8 md:px-8">
+    <div
+      className="page-soft-enter px-5 pb-8 md:px-8"
+      style={profileSwipe.containerStyle}
+      onTouchStart={profileSwipe.onTouchStart}
+      onTouchMove={profileSwipe.onTouchMove}
+      onTouchEnd={(event) => profileSwipe.onTouchEnd(event)}
+    >
       <div className="flex flex-wrap items-center justify-between gap-4 py-5">
         <Link
           href={backHref}
+          onClick={(event) => {
+            event.preventDefault();
+            goBackToCatalog();
+          }}
           className="inline-flex items-center gap-2 text-sm font900 text-slate-600 transition hover:text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
