@@ -19,6 +19,7 @@ type TeacherCardProps = {
   teacher: Teacher;
   href?: string;
   compact?: boolean;
+  onLinkClick?: () => void;
   onFavoriteChange?: (teacherId: string, saved: boolean) => void;
 };
 
@@ -51,6 +52,7 @@ export function TeacherCard({
   teacher,
   href,
   compact,
+  onLinkClick,
   onFavoriteChange,
 }: TeacherCardProps) {
   const { openAuthDialog } = useAuthDialog();
@@ -109,6 +111,7 @@ export function TeacherCard({
   return (
     <Link
       href={teacherHref}
+      onClick={onLinkClick}
       className={cn(
         "interactive-card group block rounded-lg border border-line bg-panel p-3 shadow-sm hover:border-primary hover:shadow-md sm:p-4",
         compact && "p-3",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -24,6 +24,10 @@ import {
 } from "@/lib/catalog-navigation";
 import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
 import { CATALOG_CONFIG, STORAGE_KEYS } from "@/lib/app-config";
+import { useSwipeNavigation } from "@/lib/swipe-navigation";
+
+const TEACHERS_CACHE_KEY = "studradar:catalog-teachers";
+const SCROLL_STORAGE_KEY = "studradar:catalog-scroll";
 
 type SortKey = "rating" | "reviewCount" | "commentCount" | MetricKey;
 const PAGE_SIZE = CATALOG_CONFIG.pageSize;
@@ -168,6 +172,16 @@ export function CatalogView({
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
   useEffect(() => {
+    const cached = readCachedTeachers();
+    if (cached) {
+      queueMicrotask(() => {
+        setCatalogTeachers(cached);
+        setIsLoadingCatalog(false);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
     if (!showIntro) return;
     const timer = window.setTimeout(() => {
       window.localStorage.setItem(INTRO_STORAGE_KEY, "true");
@@ -192,6 +206,7 @@ export function CatalogView({
         if (active && body?.teachers) {
           setCatalogError(null);
           setCatalogTeachers(body.teachers);
+          cacheTeachers(body.teachers);
         }
       })
       .catch((error) => {
@@ -210,6 +225,26 @@ export function CatalogView({
       controller.abort();
     };
   }, [copy.loadFailed]);
+
+  useEffect(() => {
+    const savedY = readScrollPosition();
+    if (savedY > 0 && catalogTeachers.length > 0) {
+      requestAnimationFrame(() => window.scrollTo(0, savedY));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveScrollPosition(window.scrollY);
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  const saveCurrentScroll = useCallback(() => {
+    saveScrollPosition(window.scrollY);
+  }, []);
 
   const totalReviews = useMemo(
     () => catalogTeachers.reduce((sum, teacher) => sum + teacher.reviewCount, 0),
@@ -249,6 +284,30 @@ export function CatalogView({
     query,
     sortKey,
     page: visiblePage,
+  });
+
+  const canGoPrev = visiblePage > 1;
+  const canGoNext = visiblePage < pageCount;
+
+  const handlePrevPage = useCallback(() => {
+    if (canGoPrev) {
+      saveScrollPosition(window.scrollY);
+      setCurrentPage(visiblePage - 1);
+    }
+  }, [canGoPrev, visiblePage]);
+
+  const handleNextPage = useCallback(() => {
+    if (canGoNext) {
+      saveScrollPosition(window.scrollY);
+      setCurrentPage(visiblePage + 1);
+    }
+  }, [canGoNext, visiblePage]);
+
+  const swipe = useSwipeNavigation({
+    onPrev: handlePrevPage,
+    onNext: handleNextPage,
+    canGoPrev,
+    canGoNext,
   });
 
   useEffect(() => {
@@ -386,12 +445,18 @@ export function CatalogView({
         )}
       </section>
 
-      <section className="mt-5 grid gap-3 stagger-list sm:mt-7 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
+      <section
+        className="mt-5 grid gap-3 stagger-list sm:mt-7 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3"
+        onTouchStart={swipe.onTouchStart}
+        onTouchMove={swipe.onTouchMove}
+        onTouchEnd={swipe.onTouchEnd}
+      >
         {visibleTeachers.map((teacher) => (
           <TeacherCard
             key={teacher.id}
             teacher={teacher}
             href={APP_ROUTES.teacherWithCatalog(teacher.id, catalogHref)}
+            onLinkClick={saveCurrentScroll}
             onFavoriteChange={(teacherId, saved) => {
               setCatalogTeachers((current) =>
                 current.map((item) =>
@@ -514,4 +579,47 @@ function formatCappedCount(value: number) {
   return value > CATALOG_CONFIG.countDisplayLimit
     ? `${CATALOG_CONFIG.countDisplayLimit}+`
     : value;
+}
+
+function readCachedTeachers(): Teacher[] | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(TEACHERS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheTeachers(data: Teacher[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(TEACHERS_CACHE_KEY, JSON.stringify(data));
+  } catch {
+    // sessionStorage may be full or unavailable
+  }
+}
+
+function saveScrollPosition(y: number) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(SCROLL_STORAGE_KEY, String(Math.round(y)));
+  } catch {
+    // ignore
+  }
+}
+
+function readScrollPosition(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    return Number.parseInt(
+      window.sessionStorage.getItem(SCROLL_STORAGE_KEY) ?? "0",
+      10,
+    );
+  } catch {
+    return 0;
+  }
 }
