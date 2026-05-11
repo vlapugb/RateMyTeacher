@@ -18,10 +18,23 @@ import type { MetricKey, Teacher } from "@/lib/types";
 import { resetTeachersRuntimeData } from "@/lib/teacher-model";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 import { localizeMetrics } from "@/lib/i18n";
+import {
+  getCatalogHref,
+  writeStoredCatalogHref,
+} from "@/lib/catalog-navigation";
+import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
+import { CATALOG_CONFIG, STORAGE_KEYS } from "@/lib/app-config";
 
 type SortKey = "rating" | "reviewCount" | "commentCount" | MetricKey;
-const PAGE_SIZE = 6;
-const INTRO_STORAGE_KEY = "studradar:intro-dismissed";
+const PAGE_SIZE = CATALOG_CONFIG.pageSize;
+const INTRO_STORAGE_KEY = STORAGE_KEYS.catalogIntroDismissed;
+const DEFAULT_SORT: SortKey = CATALOG_CONFIG.defaultSort;
+
+type CatalogViewProps = {
+  initialQuery?: string;
+  initialSort?: string;
+  initialPage?: number;
+};
 
 const catalogCopy: Record<
   LanguagePreference,
@@ -122,16 +135,27 @@ const catalogCopy: Record<
   },
 };
 
-export function CatalogView() {
+export function CatalogView({
+  initialQuery = "",
+  initialSort,
+  initialPage = 1,
+}: CatalogViewProps) {
   const { language } = usePreferences();
   const copy = catalogCopy[language];
   const localizedMetrics = useMemo(
     () => localizeMetrics(metrics, language),
     [language],
   );
-  const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("rating");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [query, setQuery] = useState(initialQuery);
+  const [sortKey, setSortKey] = useState<SortKey>(
+    () => (isSortKey(initialSort) ? initialSort : DEFAULT_SORT),
+  );
+  const [currentPage, setCurrentPage] = useState(
+    () =>
+      Number.isFinite(initialPage) && initialPage > 0
+        ? Math.floor(initialPage)
+        : 1,
+  );
   const [showIntro, setShowIntro] = useState(() => {
     if (typeof window === "undefined") return false;
 
@@ -148,7 +172,7 @@ export function CatalogView() {
     const timer = window.setTimeout(() => {
       window.localStorage.setItem(INTRO_STORAGE_KEY, "true");
       setShowIntro(false);
-    }, 12000);
+    }, CATALOG_CONFIG.introDismissDelayMs);
     return () => window.clearTimeout(timer);
   }, [showIntro]);
 
@@ -156,9 +180,12 @@ export function CatalogView() {
     let active = true;
     const controller = new AbortController();
 
-    fetch("/api/teachers", { signal: controller.signal })
+    fetch(API_ROUTES.teachers, { signal: controller.signal })
       .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+          if (active) setCatalogError(copy.loadFailed);
+          return null;
+        }
         return response.json();
       })
       .then((body: { teachers?: Teacher[] } | null) => {
@@ -169,7 +196,7 @@ export function CatalogView() {
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
-        console.error("Failed to load teachers", error);
+        console.warn("Failed to load teachers", error);
         if (active) setCatalogError(copy.loadFailed);
       })
       .finally(() => {
@@ -208,15 +235,36 @@ export function CatalogView() {
       });
   }, [catalogTeachers, query, sortKey]);
   const pageCount = Math.max(1, Math.ceil(filteredTeachers.length / PAGE_SIZE));
+  const visiblePage = Math.min(currentPage, pageCount);
   const visibleTeachers = filteredTeachers.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (visiblePage - 1) * PAGE_SIZE,
+    visiblePage * PAGE_SIZE,
   );
   const start = filteredTeachers.length
-    ? (currentPage - 1) * PAGE_SIZE + 1
+    ? (visiblePage - 1) * PAGE_SIZE + 1
     : 0;
-  const end = Math.min(currentPage * PAGE_SIZE, filteredTeachers.length);
-  const paginationItems = getPaginationItems(currentPage, pageCount);
+  const end = Math.min(visiblePage * PAGE_SIZE, filteredTeachers.length);
+  const paginationItems = getPaginationItems(visiblePage, pageCount);
+  const catalogHref = getCatalogHref({
+    query,
+    sortKey,
+    page: visiblePage,
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const nextHref = getCatalogHref({
+      query,
+      sortKey,
+      page: visiblePage,
+    });
+
+    if (`${window.location.pathname}${window.location.search}` !== nextHref) {
+      window.history.replaceState(window.history.state, "", nextHref);
+    }
+    writeStoredCatalogHref(nextHref);
+  }, [query, sortKey, visiblePage]);
 
   return (
     <div className="page-soft-enter px-3 pb-6 sm:px-5 sm:pb-8 md:px-8">
@@ -242,7 +290,7 @@ export function CatalogView() {
             >
               <Icon className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
               <div className="mt-1.5 text-lg font900 text-foreground tabular-nums sm:mt-2 sm:text-xl">
-                {value > 1000 ? "1000+" : value}
+                {formatCappedCount(value)}
               </div>
               <div className="mt-0.5 truncate text-[10px] font800 text-slate-500 sm:text-xs">
                 {label}
@@ -343,6 +391,7 @@ export function CatalogView() {
           <TeacherCard
             key={teacher.id}
             teacher={teacher}
+            href={APP_ROUTES.teacherWithCatalog(teacher.id, catalogHref)}
             onFavoriteChange={(teacherId, saved) => {
               setCatalogTeachers((current) =>
                 current.map((item) =>
@@ -362,8 +411,8 @@ export function CatalogView() {
         <div className="flex max-w-full items-center gap-1.5 overflow-x-auto pb-1 sm:gap-2">
           <button
             type="button"
-            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(Math.max(1, visiblePage - 1))}
+            disabled={visiblePage === 1}
             aria-label={copy.previousPage}
             title={copy.previousPage}
             className="focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-white text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-45 sm:h-10 sm:w-10"
@@ -378,7 +427,7 @@ export function CatalogView() {
                 onClick={() => setCurrentPage(item)}
                 className={cn(
                   "grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line font900 transition sm:h-10 sm:w-10",
-                  item === currentPage
+                  item === visiblePage
                     ? "bg-primary text-white shadow-sm"
                     : "bg-white text-slate-600 hover:border-primary hover:-translate-y-0.5",
                 )}
@@ -397,10 +446,8 @@ export function CatalogView() {
           )}
           <button
             type="button"
-            onClick={() =>
-              setCurrentPage((page) => Math.min(pageCount, page + 1))
-            }
-            disabled={currentPage === pageCount}
+            onClick={() => setCurrentPage(Math.min(pageCount, visiblePage + 1))}
+            disabled={visiblePage === pageCount}
             aria-label={copy.nextPage}
             title={copy.nextPage}
             className="focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-white text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-45 sm:h-10 sm:w-10"
@@ -452,4 +499,19 @@ function getSortValue(teacher: Teacher, sortKey: SortKey) {
   }
 
   return teacher.scores[sortKey];
+}
+
+function isSortKey(value: string | null | undefined): value is SortKey {
+  return (
+    value === "rating" ||
+    value === "reviewCount" ||
+    value === "commentCount" ||
+    metrics.some((metric) => metric.key === value)
+  );
+}
+
+function formatCappedCount(value: number) {
+  return value > CATALOG_CONFIG.countDisplayLimit
+    ? `${CATALOG_CONFIG.countDisplayLimit}+`
+    : value;
 }

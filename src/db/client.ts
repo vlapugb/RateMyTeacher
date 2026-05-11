@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "@/db/schema";
+import { DATABASE_POOL_SIZE } from "@/lib/app-config";
 import { requireServerEnv } from "@/lib/env";
 
 const connectionString = requireServerEnv("DATABASE_URL");
@@ -13,7 +14,7 @@ export const pool =
   globalForDb.studradarPool ??
   new Pool({
     connectionString,
-    max: 10,
+    max: DATABASE_POOL_SIZE,
   });
 
 if (process.env.NODE_ENV !== "production") {

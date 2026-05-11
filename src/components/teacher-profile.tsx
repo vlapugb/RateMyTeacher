@@ -25,6 +25,9 @@ import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 import { resetTeacherRuntimeData } from "@/lib/teacher-model";
 import { cn } from "@/lib/utils";
 import type { Review, Teacher } from "@/lib/types";
+import { readStoredCatalogHref } from "@/lib/catalog-navigation";
+import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
+import { REVIEW_CONFIG, SHARE_COPIED_DISPLAY_MS } from "@/lib/app-config";
 
 export type TeacherTab = "ratings" | "courses";
 
@@ -34,9 +37,10 @@ type TeacherProfileProps = {
   baseTeacher: Teacher;
   activeTab: TeacherTab;
   baseReviews: Review[];
+  catalogHref?: string;
 };
 
-const COMMENTS_PAGE_SIZE = 20;
+const COMMENTS_PAGE_SIZE = REVIEW_CONFIG.defaultPageSize;
 
 const profileCopy: Record<
   LanguagePreference,
@@ -158,6 +162,7 @@ export function TeacherProfile({
   baseTeacher,
   activeTab,
   baseReviews,
+  catalogHref = APP_ROUTES.teachers,
 }: TeacherProfileProps) {
   const { language } = usePreferences();
   const copy = profileCopy[language];
@@ -169,11 +174,22 @@ export function TeacherProfile({
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentSort, setCommentSort] = useState<CommentSortKey>("newest");
   const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const [backHref, setBackHref] = useState(catalogHref);
+
+  useEffect(() => {
+    queueMicrotask(() =>
+      setBackHref(
+        catalogHref === APP_ROUTES.teachers
+          ? readStoredCatalogHref()
+          : catalogHref,
+      ),
+    );
+  }, [catalogHref]);
 
   useEffect(() => {
     let active = true;
 
-    fetch("/api/teachers")
+    fetch(API_ROUTES.teachers)
       .then((response) => (response.ok ? response.json() : null))
       .then((body: { teachers?: Teacher[] } | null) => {
         const nextTeacher = body?.teachers?.find((item) => item.id === baseTeacher.id);
@@ -195,7 +211,7 @@ export function TeacherProfile({
       sort: commentSort,
     });
 
-    fetch(`/api/reviews?${params.toString()}`)
+    fetch(`${API_ROUTES.reviews}?${params.toString()}`)
       .then((response) => (response.ok ? response.json() : null))
       .then((body: {
         reviews?: Review[];
@@ -234,7 +250,7 @@ export function TeacherProfile({
     .slice(0, 3);
 
   async function handleShare() {
-    const url = `${window.location.origin}/teachers/${teacher.id}`;
+    const url = `${window.location.origin}${APP_ROUTES.teacher(teacher.id)}`;
 
     try {
       if (navigator.share) {
@@ -246,7 +262,7 @@ export function TeacherProfile({
       } else {
         await navigator.clipboard.writeText(url);
         setShareStatus(copy.shareCopied);
-        window.setTimeout(() => setShareStatus(null), 1800);
+        window.setTimeout(() => setShareStatus(null), SHARE_COPIED_DISPLAY_MS);
       }
     } catch {
       setShareStatus(null);
@@ -258,7 +274,7 @@ export function TeacherProfile({
       return;
     }
 
-    const response = await fetch(`/api/reviews?teacherId=${teacher.id}`, {
+    const response = await fetch(API_ROUTES.reviewsForTeacher(teacher.id), {
       method: "DELETE",
     }).catch(() => null);
 
@@ -270,7 +286,7 @@ export function TeacherProfile({
     setCommentsTotal((current) => Math.max(0, current - 1));
     setOwnReview(null);
 
-    fetch("/api/teachers")
+    fetch(API_ROUTES.teachers)
       .then((teachersResponse) =>
         teachersResponse.ok ? teachersResponse.json() : null,
       )
@@ -290,7 +306,7 @@ export function TeacherProfile({
     });
 
     setCommentsLoading(true);
-    const body = (await fetch(`/api/reviews?${params.toString()}`)
+    const body = (await fetch(`${API_ROUTES.reviews}?${params.toString()}`)
       .then((response) => (response.ok ? response.json() : null))
       .catch(() => null)) as {
       reviews?: Review[];
@@ -308,7 +324,7 @@ export function TeacherProfile({
     <div className="page-soft-enter px-5 pb-8 md:px-8">
       <div className="flex flex-wrap items-center justify-between gap-4 py-5">
         <Link
-          href="/teachers"
+          href={backHref}
           className="inline-flex items-center gap-2 text-sm font900 text-slate-600 transition hover:text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -357,7 +373,7 @@ export function TeacherProfile({
 
           <div className="grid gap-3">
             <Link
-              href={`/teachers/${teacher.id}/rate`}
+              href={APP_ROUTES.teacherRate(teacher.id)}
               className="focus-ring inline-flex h-11 items-center justify-center rounded-lg bg-gradient-to-r from-primary to-primary-strong px-4 text-sm font-semibold text-white shadow-sm shadow-blue-200 transition hover:-translate-y-0.5 hover:brightness-105"
             >
               {ownReview ? copy.editRating : copy.rateTeacher}
@@ -466,7 +482,7 @@ export function TeacherProfile({
                     <ReviewCard
                       key={review.id}
                       review={review}
-                      editHref={`/teachers/${teacher.id}/rate`}
+                      editHref={APP_ROUTES.teacherRate(teacher.id)}
                       onDelete={handleDeleteReview}
                     />
                   ))}
@@ -490,7 +506,7 @@ export function TeacherProfile({
                     {copy.noComments}
                   </h3>
                   <Link
-                    href={`/teachers/${teacher.id}/rate`}
+                    href={APP_ROUTES.teacherRate(teacher.id)}
                     className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-gradient-to-r from-primary to-primary-strong px-4 text-sm font900 text-white shadow-sm shadow-blue-200 transition hover:-translate-y-0.5 hover:brightness-105"
                   >
                     {copy.firstComment}
@@ -549,11 +565,11 @@ function TeacherTabs({
   };
 }) {
   const tabs = [
-    { id: "ratings", label: copy.ratings, href: `/teachers/${teacherId}` },
+    { id: "ratings", label: copy.ratings, href: APP_ROUTES.teacher(teacherId) },
     {
       id: "courses",
       label: `${copy.courses} (${courseCount})`,
-      href: `/teachers/${teacherId}?tab=courses`,
+      href: APP_ROUTES.teacherCourses(teacherId),
     },
   ] as const;
 

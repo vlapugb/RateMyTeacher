@@ -23,6 +23,8 @@ import {
   usePreferences,
   type LanguagePreference,
 } from "@/lib/preferences";
+import { APP_ROUTES, API_ROUTES } from "@/lib/app-routes";
+import { STUDENT_IDENTITY } from "@/lib/app-config";
 import { cn } from "@/lib/utils";
 
 type AccountSummary = {
@@ -210,7 +212,7 @@ export default function AccountPage() {
     if (!user) return;
     const controller = new AbortController();
 
-    fetch("/api/account/summary", { signal: controller.signal })
+    fetch(API_ROUTES.accountSummary, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
@@ -241,7 +243,7 @@ export default function AccountPage() {
     const newPassword = String(form.get("newPassword") ?? "");
     const confirmPassword = String(form.get("confirmPassword") ?? "");
 
-    if (newPassword.length < 8) {
+    if (newPassword.length < STUDENT_IDENTITY.passwordMinLength) {
       setPasswordStatus(copy.passwordShort);
       return;
     }
@@ -254,7 +256,7 @@ export default function AccountPage() {
     setPasswordSaving(true);
     setPasswordStatus(null);
 
-    const response = await fetch("/api/auth/change-password", {
+    const response = await fetch(API_ROUTES.authChangePassword, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -278,8 +280,8 @@ export default function AccountPage() {
   async function resendVerificationEmail() {
     if (!user?.email) return;
 
-    const callbackURL = new URL("/account", window.location.origin).toString();
-    const response = await fetch("/api/auth/send-verification-email", {
+    const callbackURL = new URL(APP_ROUTES.account, window.location.origin).toString();
+    const response = await fetch(API_ROUTES.authSendVerificationEmail, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: user.email, callbackURL }),
@@ -396,14 +398,14 @@ export default function AccountPage() {
           <h2 className="text-lg font900 sm:text-xl">{copy.actions}</h2>
           <div className="mt-3 grid gap-2 sm:mt-4 sm:gap-3">
             <Link
-              href="/favorites"
+              href={APP_ROUTES.favorites}
               className="focus-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-3 text-xs font900 text-foreground transition hover:border-primary hover:text-primary sm:h-11 sm:px-4 sm:text-sm"
             >
               <Bookmark className="h-5 w-5" />
               {copy.openFavorites}
             </Link>
             <Link
-              href="/teachers"
+              href={APP_ROUTES.teachers}
               className="focus-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-3 text-xs font900 text-foreground transition hover:border-primary hover:text-primary sm:h-11 sm:px-4 sm:text-sm"
             >
               <UserRound className="h-5 w-5" />
@@ -522,7 +524,7 @@ function PasswordField({ name, label }: { name: string; label: string }) {
       <input
         name={name}
         required
-        minLength={8}
+        minLength={STUDENT_IDENTITY.passwordMinLength}
         type="password"
         className="focus-ring mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm sm:h-11"
       />

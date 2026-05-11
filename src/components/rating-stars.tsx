@@ -1,4 +1,5 @@
 import { Star } from "lucide-react";
+import { RATING_SCALE } from "@/lib/app-config";
 import { cn } from "@/lib/utils";
 
 type RatingStarsProps = {
@@ -22,11 +23,17 @@ export function RatingStars({
   danger,
 }: RatingStarsProps) {
   const safeValue = Number.isFinite(value) ? value : 0;
-  const rounded = Math.min(5, Math.max(0, Math.round(safeValue)));
+  const rounded = Math.min(
+    RATING_SCALE.displayMax,
+    Math.max(RATING_SCALE.displayMin, Math.round(safeValue)),
+  );
 
   return (
-    <div className="flex items-center gap-0.5" aria-label={`${rounded} / 5`}>
-      {Array.from({ length: 5 }).map((_, index) => {
+    <div
+      className="flex items-center gap-0.5"
+      aria-label={`${rounded} / ${RATING_SCALE.displayMax}`}
+    >
+      {Array.from({ length: RATING_SCALE.stars }).map((_, index) => {
         const filled = index + 1 <= rounded;
         return (
           <Star

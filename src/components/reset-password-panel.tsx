@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthDialog } from "@/components/auth-dialog-context";
+import { STUDENT_IDENTITY } from "@/lib/app-config";
+import { APP_ROUTES, API_ROUTES } from "@/lib/app-routes";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 
 const resetCopy: Record<
@@ -110,7 +112,7 @@ export function ResetPasswordPanel() {
     const confirmPassword =
       confirmPasswordEntry === null ? "" : String(confirmPasswordEntry);
 
-    if (newPassword.length < 8) {
+    if (newPassword.length < STUDENT_IDENTITY.passwordMinLength) {
       setStatus(copy.passwordShort);
       newPasswordRef.current?.focus();
       return;
@@ -125,7 +127,7 @@ export function ResetPasswordPanel() {
     setSubmitting(true);
     setStatus(null);
 
-    const response = await fetch("/api/auth/reset-password", {
+    const response = await fetch(API_ROUTES.authResetPassword, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ newPassword, token }),
@@ -148,7 +150,7 @@ export function ResetPasswordPanel() {
     <div className="page-soft-enter px-5 pb-8 md:px-8">
       <section className="mx-auto max-w-xl pt-8">
         <Link
-          href="/teachers"
+          href={APP_ROUTES.teachers}
           className="text-sm font900 text-slate-600 hover:text-primary"
         >
           {copy.back}
@@ -183,7 +185,7 @@ export function ResetPasswordPanel() {
                   ref={newPasswordRef}
                   name="newPassword"
                   required
-                  minLength={8}
+                  minLength={STUDENT_IDENTITY.passwordMinLength}
                   type="password"
                   aria-describedby={status ? statusId : undefined}
                   className="focus-ring mt-1 h-11 w-full rounded-lg border border-line px-3 text-sm"
@@ -198,7 +200,7 @@ export function ResetPasswordPanel() {
                   ref={confirmPasswordRef}
                   name="confirmPassword"
                   required
-                  minLength={8}
+                  minLength={STUDENT_IDENTITY.passwordMinLength}
                   type="password"
                   aria-describedby={status ? statusId : undefined}
                   className="focus-ring mt-1 h-11 w-full rounded-lg border border-line px-3 text-sm"
