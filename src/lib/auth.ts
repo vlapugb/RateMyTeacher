@@ -4,10 +4,7 @@ import { sendAuthEmail } from "@/lib/email";
 import { logger } from "@/lib/logger";
 import { pool } from "@/db/client";
 import { requireServerEnv } from "@/lib/env";
-import {
-  APP_NAME,
-  STUDENT_IDENTITY,
-} from "@/lib/app-config";
+import { APP_NAME, STUDENT_IDENTITY } from "@/lib/app-config";
 import {
   isStudentEmailMatchingLogin,
   isStudentLogin,

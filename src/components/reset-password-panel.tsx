@@ -7,7 +7,7 @@ import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthDialog } from "@/components/auth-dialog-context";
 import { STUDENT_IDENTITY } from "@/lib/app-config";
-import { APP_ROUTES, API_ROUTES } from "@/lib/app-routes";
+import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 
 const resetCopy: Record<

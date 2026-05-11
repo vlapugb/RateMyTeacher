@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "email:test": "npx tsx scripts/send-test-email.ts",
-    "gmail:auth-url": "npx tsx scripts/gmail-oauth.ts auth-url",
-    "gmail:exchange": "npx tsx scripts/gmail-oauth.ts exchange",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "email:test": "node scripts/send-test-email.mjs",
+    "gmail:auth-url": "node scripts/gmail-oauth.mjs auth-url",
+    "gmail:exchange": "node scripts/gmail-oauth.mjs exchange",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
@@ -44,6 +46,7 @@
     "eslint-config-next": "^16.2.6",
     "postcss": "^8.5.14",
     "tailwindcss": "^4.3.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
   }
 }

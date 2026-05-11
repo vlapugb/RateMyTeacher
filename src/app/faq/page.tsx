@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { MessageCircle, Send, ShieldQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CONTACT_CONFIG } from "@/lib/app-config";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 
 const faqCopy: Record<
@@ -182,7 +183,7 @@ export default function FaqPage() {
     const body = encodeURIComponent(
       `${copy.emailBodyPrefix}: ${email}\n\n${message}`,
     );
-    window.location.href = `mailto:bystepgoing@student.spbu.ru?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:${CONTACT_CONFIG.email}?subject=${subject}&body=${body}`;
     setSent(true);
   }
 
@@ -222,14 +223,16 @@ export default function FaqPage() {
             </p>
             <div className="mt-5 space-y-3">
               <a
-                href="https://t.me/bystepgoing"
+                href={CONTACT_CONFIG.telegramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 rounded-lg border border-line bg-slate-50 p-3 text-sm font800 text-slate-700 transition hover:-translate-y-0.5 hover:border-primary hover:text-primary hover:shadow-sm"
               >
                 <MessageCircle className="h-5 w-5 text-[#2AABEE]" />
                 <span>{copy.telegram}</span>
-                <span className="ml-auto text-xs text-muted">@bystepgoing</span>
+                <span className="ml-auto text-xs text-muted">
+                  {CONTACT_CONFIG.telegramHandle}
+                </span>
               </a>
             </div>
           </div>

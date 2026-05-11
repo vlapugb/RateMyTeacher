@@ -23,16 +23,13 @@ import {
   usePreferences,
   type LanguagePreference,
 } from "@/lib/preferences";
-import { APP_ROUTES, API_ROUTES } from "@/lib/app-routes";
+import { getAccountSummary } from "@/lib/api-client";
 import { STUDENT_IDENTITY } from "@/lib/app-config";
+import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
+import type { AccountSummaryResponse } from "@/lib/api-contracts";
 import { cn } from "@/lib/utils";
 
-type AccountSummary = {
-  reviewCount: number;
-  commentCount: number;
-  favoriteCount: number;
-  lastReviewAt: string | null;
-};
+type AccountSummary = AccountSummaryResponse;
 
 const accountCopy: Record<
   LanguagePreference,
@@ -212,12 +209,8 @@ export default function AccountPage() {
     if (!user) return;
     const controller = new AbortController();
 
-    fetch(API_ROUTES.accountSummary, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-      })
-      .then((body: AccountSummary | null) => setSummary(body))
+    getAccountSummary(controller.signal)
+      .then((body) => setSummary(body))
       .catch((error) => {
         if (controller.signal.aborted) return;
         console.error("Failed to load account summary", error);
@@ -280,7 +273,7 @@ export default function AccountPage() {
   async function resendVerificationEmail() {
     if (!user?.email) return;
 
-    const callbackURL = new URL(APP_ROUTES.account, window.location.origin).toString();
+    const callbackURL = new URL("/account", window.location.origin).toString();
     const response = await fetch(API_ROUTES.authSendVerificationEmail, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
