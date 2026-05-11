@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { API_RATE_LIMITS } from "@/lib/app-config";
+import { favoriteTeacherSchema } from "@/lib/api-contracts";
 import {
   addFavoriteTeacher,
   getFavoriteTeacherIds,
   removeFavoriteTeacher,
 } from "@/lib/teacher-store";
+<<<<<<< HEAD
 import { teachers } from "@/lib/mock-data";
 import {
   API_RATE_LIMITS,
@@ -21,6 +23,10 @@ import {
 const favoriteSchema = z.object({
   teacherId: z.string().min(1),
 });
+=======
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
+import { teachers } from "@/lib/teacher-catalog";
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
 export async function GET(request: Request) {
   const session = await auth.api.getSession({
@@ -40,6 +46,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+<<<<<<< HEAD
   const rateLimitResponse = createRateLimitResponse({
     request,
     namespace: RATE_LIMIT_NAMESPACE.favorites,
@@ -47,6 +54,28 @@ export async function POST(request: Request) {
     message: "Слишком много запросов. Попробуйте позже.",
   });
   if (rateLimitResponse) return rateLimitResponse;
+=======
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? request.headers.get("x-real-ip")
+    ?? "anonymous";
+  const rateLimit = checkRateLimit(
+    `favorites:${ip}`,
+    API_RATE_LIMITS.favoriteWrites,
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { message: "Слишком много запросов. Попробуйте позже." },
+      {
+        status: 429,
+        headers: getRateLimitHeaders(
+          API_RATE_LIMITS.favoriteWrites,
+          0,
+          `favorites:${ip}`,
+        ),
+      },
+    );
+  }
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
   const session = await auth.api.getSession({
     headers: request.headers,
@@ -59,8 +88,13 @@ export async function POST(request: Request) {
     );
   }
 
+<<<<<<< HEAD
   const body = await readJson(request);
   const parsed = favoriteSchema.safeParse(body);
+=======
+  const body = await request.json().catch(() => null);
+  const parsed = favoriteTeacherSchema.safeParse(body);
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
   if (!parsed.success) {
     return jsonMessage("Неверный формат данных.", HTTP_STATUS.badRequest);
@@ -76,6 +110,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+<<<<<<< HEAD
   const rateLimitResponse = createRateLimitResponse({
     request,
     namespace: RATE_LIMIT_NAMESPACE.favorites,
@@ -83,6 +118,28 @@ export async function DELETE(request: Request) {
     message: "Слишком много запросов. Попробуйте позже.",
   });
   if (rateLimitResponse) return rateLimitResponse;
+=======
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? request.headers.get("x-real-ip")
+    ?? "anonymous";
+  const rateLimit = checkRateLimit(
+    `favorites:${ip}`,
+    API_RATE_LIMITS.favoriteWrites,
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { message: "Слишком много запросов. Попробуйте позже." },
+      {
+        status: 429,
+        headers: getRateLimitHeaders(
+          API_RATE_LIMITS.favoriteWrites,
+          0,
+          `favorites:${ip}`,
+        ),
+      },
+    );
+  }
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
   const session = await auth.api.getSession({
     headers: request.headers,

@@ -1,6 +1,8 @@
 import { randomUUID } from "crypto";
 import { sql } from "drizzle-orm";
 import { db, pool } from "@/db/client";
+import { REVIEW_CONFIG, RATING_SCALE } from "@/lib/app-config";
+import type { ReviewSortKey } from "@/lib/api-contracts";
 import type { MetricKey, Review, Teacher } from "@/lib/types";
 import {
   applyStatsToTeacher,
@@ -50,9 +52,12 @@ type TeacherStatsRow = {
   overall: string | null;
 };
 
+<<<<<<< HEAD
 export type ReviewSortKey = "newest" | "highest" | "lowest";
 export type RecentReviewKind = "reviews" | "comments";
 
+=======
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 type ReviewPage = {
   reviews: Review[];
   total: number;
@@ -60,6 +65,7 @@ type ReviewPage = {
 
 let initialized = false;
 let initializationPromise: Promise<void> | null = null;
+<<<<<<< HEAD
 const REVIEW_SCORE_COLUMNS = [
   "knowledge",
   "communication",
@@ -68,6 +74,8 @@ const REVIEW_SCORE_COLUMNS = [
   "vibe",
   "overall",
 ] as const satisfies MetricKey[];
+=======
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 let teacherStatsCache:
   | {
       expiresAt: number;
@@ -292,12 +300,12 @@ async function readTeacherStats() {
         reviewCount: Number(row.review_count),
         commentCount: Number(row.comment_count),
         scores: {
-          knowledge: parseScore(row.knowledge),
-          communication: parseScore(row.communication),
-          leniency: parseScore(row.leniency),
-          fairness: parseScore(row.fairness),
-          vibe: parseScore(row.vibe),
-          overall: parseScore(row.overall),
+          knowledge: parseOptionalScore(row.knowledge),
+          communication: parseOptionalScore(row.communication),
+          leniency: parseOptionalScore(row.leniency),
+          fairness: parseOptionalScore(row.fairness),
+          vibe: parseOptionalScore(row.vibe),
+          overall: parseOptionalScore(row.overall),
         },
       } satisfies TeacherStats,
     ]),
@@ -320,7 +328,10 @@ export async function getPublicReviews(
     limit: options.limit ?? REVIEW_CONFIG.maxPageSize,
     offset: options.offset ?? 0,
     sort: options.sort ?? REVIEW_CONFIG.defaultSort,
+<<<<<<< HEAD
     canModerate: options.canModerate,
+=======
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   });
 
   return page.reviews;
@@ -995,8 +1006,9 @@ function getReviewRating(row: TeacherReviewRow) {
   if (!values.length) return 0;
 
   return Math.round(
-    (values.reduce((sum, value) => sum + value, 0) / values.length) * 100,
-  ) / 100;
+    (values.reduce((sum, value) => sum + value, 0) / values.length) *
+      RATING_SCALE.roundingPrecision,
+  ) / RATING_SCALE.roundingPrecision;
 }
 
 function normalizeScores(scores: Partial<Record<MetricKey, number>>) {
@@ -1014,9 +1026,10 @@ function toNullableScore(value: number | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? String(value) : null;
 }
 
-function parseScore(value: string | null) {
-  if (value == null) return 0;
-  return Math.round(Number(value) * 100) / 100;
+function parseOptionalScore(value: string | null) {
+  if (value == null) return undefined;
+  return Math.round(Number(value) * RATING_SCALE.roundingPrecision) /
+    RATING_SCALE.roundingPrecision;
 }
 
 function invalidateTeacherStatsCache() {

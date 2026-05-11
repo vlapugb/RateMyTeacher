@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { useAuthDialog } from "@/components/auth-dialog-context";
 import { authClient } from "@/lib/auth-client";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
+<<<<<<< HEAD
 import { API_ROUTES } from "@/lib/app-routes";
+=======
+import { getTeachers } from "@/lib/api-client";
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 import type { Teacher } from "@/lib/types";
 
 const favoritesCopy: Record<
@@ -69,14 +73,19 @@ export default function FavoritesPage() {
     if (!session.data?.user) return;
     const controller = new AbortController();
 
+<<<<<<< HEAD
     fetch(API_ROUTES.favoriteTeachers, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
       })
       .then((body: { teachers?: Teacher[] } | null) => {
+=======
+    getTeachers({ favorite: true, signal: controller.signal })
+      .then((body) => {
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
         setLoadError(null);
-        setSavedTeachers(body?.teachers ?? []);
+        setSavedTeachers(body.teachers);
       })
       .catch((error) => {
         if (controller.signal.aborted) return;

@@ -10,8 +10,12 @@ import { useAuthDialog } from "@/components/auth-dialog-context";
 import { authClient } from "@/lib/auth-client";
 import { genericReviewText, formatRelativeTime } from "@/lib/i18n";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
+<<<<<<< HEAD
 import { API_ROUTES } from "@/lib/app-routes";
 import { HTTP_STATUS, REVIEW_IDENTITY } from "@/lib/app-config";
+=======
+import { ApiRequestError, toggleReviewLike } from "@/lib/api-client";
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 import { cn } from "@/lib/utils";
 
 type ReviewCardProps = {
@@ -99,6 +103,7 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
     setLikeSaving(true);
     setLikeStatus(null);
 
+<<<<<<< HEAD
     const response = await fetch(
       API_ROUTES.reviewLike(review.id),
       {
@@ -118,14 +123,23 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
       );
       return;
     }
+=======
+    const body = await toggleReviewLike(review.id, nextLiked).catch((error) => {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        setLikeStatus(copy.authRequired);
+      } else {
+        setLikeStatus(copy.likeFailed);
+      }
+      return null;
+    });
 
-    const body = (await response.json()) as {
-      likeCount?: number;
-      likedByMe?: boolean;
-    };
+    setLikeSaving(false);
 
-    setLikeCount(body.likeCount ?? likeCount);
-    setLikedByMe(Boolean(body.likedByMe));
+    if (!body) return;
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
+
+    setLikeCount(body.likeCount);
+    setLikedByMe(body.likedByMe);
   }
 
   return (

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MouseEvent, useState } from "react";
 import { Bookmark, MessageSquareText } from "lucide-react";
 import type { Teacher } from "@/lib/types";
-import { metrics } from "@/lib/mock-data";
+import { metrics } from "@/lib/teacher-catalog";
 import { RatingStars } from "@/components/rating-stars";
 import { ScorePill } from "@/components/score-pill";
 import { TeacherAvatar } from "@/components/teacher-avatar";
@@ -12,7 +12,12 @@ import { useAuthDialog } from "@/components/auth-dialog-context";
 import { authClient } from "@/lib/auth-client";
 import { formatReviewCount, localizeMetrics } from "@/lib/i18n";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
+<<<<<<< HEAD
 import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
+=======
+import { addFavoriteTeacher, removeFavoriteTeacher } from "@/lib/api-client";
+import { APP_ROUTES } from "@/lib/app-routes";
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 import { cn } from "@/lib/utils";
 
 type TeacherCardProps = {
@@ -84,6 +89,7 @@ export function TeacherCard({
     setSaving(true);
     setFavoriteError(null);
     const nextSaved = !saved;
+<<<<<<< HEAD
     const response = await fetch(
       nextSaved
         ? API_ROUTES.favorites
@@ -93,14 +99,18 @@ export function TeacherCard({
         headers: { "Content-Type": "application/json" },
         body: nextSaved ? JSON.stringify({ teacherId: teacher.id }) : undefined,
       },
+=======
+    const savedResult = await (nextSaved
+      ? addFavoriteTeacher(teacher.id)
+      : removeFavoriteTeacher(teacher.id)
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
     ).catch((error) => {
       console.error("Failed to toggle favorite", error);
       return null;
     });
     setSaving(false);
 
-    if (!response?.ok) {
-      if (response?.status === 401) openAuthDialog("signin");
+    if (!savedResult) {
       setFavoriteError(copy.favoriteFailed);
       return;
     }
@@ -110,8 +120,12 @@ export function TeacherCard({
 
   return (
     <Link
+<<<<<<< HEAD
       href={teacherHref}
       onClick={onLinkClick}
+=======
+      href={APP_ROUTES.teacher(teacher.id)}
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
       className={cn(
         "interactive-card group block rounded-lg border border-line bg-panel p-3 shadow-sm hover:border-primary hover:shadow-md sm:p-4",
         compact && "p-3",

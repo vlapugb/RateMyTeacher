@@ -6,6 +6,8 @@ import { Eye, EyeOff, MailCheck, ShieldCheck, X } from "lucide-react";
 import type { AuthDialogMode } from "@/components/auth-dialog-context";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
+import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
+import { STUDENT_IDENTITY } from "@/lib/app-config";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 import {
   getStudentEmailForLogin,
@@ -18,6 +20,11 @@ import { APP_ROUTES, API_ROUTES } from "@/lib/app-routes";
 import { STUDENT_IDENTITY } from "@/lib/app-config";
 import { cn } from "@/lib/utils";
 
+<<<<<<< HEAD
+=======
+const STUDENT_EMAIL_DOMAIN = `@${STUDENT_IDENTITY.emailDomain}`;
+
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 type AuthDialogProps = {
   initialMode?: AuthDialogMode;
   onOpenChange: (open: boolean) => void;
@@ -311,7 +318,13 @@ export function AuthDialog({
           password,
           login,
           callbackURL: APP_ROUTES.account,
+<<<<<<< HEAD
         } as Parameters<typeof authClient.signUp.email>[0] & { login: string })).catch((error: unknown) => ({
+=======
+        } as Parameters<typeof authClient.signUp.email>[0] & {
+          login: string;
+        })).catch((error: unknown) => ({
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
       error: {
         status: 0,
         message:

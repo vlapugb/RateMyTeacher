@@ -1,4 +1,6 @@
+import { headers } from "next/headers";
 import { CatalogView } from "@/components/catalog-view";
+<<<<<<< HEAD
 import { parseCatalogPageParam } from "@/lib/catalog-navigation";
 
 type TeachersPageProps = {
@@ -22,4 +24,12 @@ export default async function TeachersPage({ searchParams }: TeachersPageProps) 
       initialPage={initialPage}
     />
   );
+=======
+import { getInitialTeachers } from "@/lib/server-teacher-data";
+
+export default async function TeachersPage() {
+  const initialTeachers = await getInitialTeachers(await headers());
+
+  return <CatalogView initialTeachers={initialTeachers} />;
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 }

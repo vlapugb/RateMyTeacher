@@ -274,14 +274,8 @@ button {
 }
 
 .page-soft-enter > * {
-  animation: fade-in 0.4s ease-out both;
+  animation: fade-in 0.2s ease-out both;
 }
-
-.page-soft-enter > *:nth-child(1) { animation-delay: 0s; }
-.page-soft-enter > *:nth-child(2) { animation-delay: 0.06s; }
-.page-soft-enter > *:nth-child(3) { animation-delay: 0.12s; }
-.page-soft-enter > *:nth-child(4) { animation-delay: 0.18s; }
-.page-soft-enter > *:nth-child(5) { animation-delay: 0.24s; }
 
 .interactive-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -297,9 +291,10 @@ button {
 }
 
 .stagger-list > * {
-  animation: fade-in 0.35s ease-out both;
+  animation: fade-in 0.18s ease-out both;
 }
 
+<<<<<<< HEAD
 .stagger-list > *:nth-child(1) { animation-delay: 0.02s; }
 .stagger-list > *:nth-child(2) { animation-delay: 0.08s; }
 .stagger-list > *:nth-child(3) { animation-delay: 0.14s; }
@@ -318,6 +313,8 @@ button {
 .stagger-list-slow > *:nth-child(5) { animation-delay: 0.28s; }
 .stagger-list-slow > *:nth-child(6) { animation-delay: 0.34s; }
 
+=======
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 .hover-lift {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }

@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { auth } from "@/lib/auth";
+<<<<<<< HEAD
 import { teachers } from "@/lib/mock-data";
 import { joinReviewTextParts } from "@/lib/teacher-model";
+=======
+import { API_RATE_LIMITS, REVIEW_CONFIG } from "@/lib/app-config";
+import {
+  reviewSortSchema,
+  reviewWriteSchema,
+  type ReviewSortKey,
+  type ReviewWriteInput,
+} from "@/lib/api-contracts";
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
+import { teachers } from "@/lib/teacher-catalog";
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 import {
   createTeacherReview,
   deleteTeacherReview,
@@ -10,7 +21,6 @@ import {
   getOwnReview,
   getPublicReviewsPage,
   updateTeacherReview,
-  type ReviewSortKey,
 } from "@/lib/teacher-store";
 import { isModeratorUser } from "@/lib/moderation";
 import {
@@ -27,6 +37,7 @@ import {
   readJson,
 } from "@/lib/http";
 
+<<<<<<< HEAD
 const scoreSchema = z.object({
   knowledge: z.number().min(RATING_SCALE.min).max(RATING_SCALE.max).optional(),
   communication: z
@@ -65,6 +76,8 @@ const createReviewSchema = z
     { message: "Поставьте хотя бы одну оценку или заполните комментарий." },
   );
 
+=======
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 export async function GET(request: Request) {
   const session = await auth.api.getSession({
     headers: request.headers,
@@ -72,6 +85,7 @@ export async function GET(request: Request) {
   const canModerate = isModeratorUser(session?.user);
   const { searchParams } = new URL(request.url);
   const teacherId = searchParams.get("teacherId");
+<<<<<<< HEAD
   const limit = parseBoundedInteger(searchParams.get("limit"), {
     fallback: REVIEW_CONFIG.defaultPageSize,
     min: 1,
@@ -81,6 +95,14 @@ export async function GET(request: Request) {
     fallback: 0,
     min: 0,
   });
+=======
+  const limit = clampNumber(
+    Number(searchParams.get("limit") ?? REVIEW_CONFIG.defaultPageSize),
+    1,
+    REVIEW_CONFIG.maxPageSize,
+  );
+  const offset = Math.max(0, Number(searchParams.get("offset") ?? 0) || 0);
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   const sort = getReviewSort(searchParams.get("sort"));
 
   if (!teacherId) {
@@ -110,11 +132,29 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+<<<<<<< HEAD
   const rateLimitResponse = createReviewWriteRateLimitResponse(
     request,
     RATE_LIMIT_NAMESPACE.reviewPost,
   );
   if (rateLimitResponse) return rateLimitResponse;
+=======
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit(`reviews:post:${ip}`, API_RATE_LIMITS.reviewWrites);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { message: "Слишком много запросов. Попробуйте позже." },
+      {
+        status: 429,
+        headers: getRateLimitHeaders(
+          API_RATE_LIMITS.reviewWrites,
+          0,
+          `reviews:post:${ip}`,
+        ),
+      },
+    );
+  }
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
   const body = await readJson(request);
 
@@ -122,7 +162,7 @@ export async function POST(request: Request) {
     return jsonMessage("Неверный формат данных.", HTTP_STATUS.badRequest);
   }
 
-  const parsed = createReviewSchema.safeParse(body);
+  const parsed = reviewWriteSchema.safeParse(body);
 
   if (!parsed.success) {
     return jsonMessage("Проверьте поля формы.", HTTP_STATUS.badRequest);
@@ -202,11 +242,29 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+<<<<<<< HEAD
   const rateLimitResponse = createReviewWriteRateLimitResponse(
     request,
     RATE_LIMIT_NAMESPACE.reviewPut,
   );
   if (rateLimitResponse) return rateLimitResponse;
+=======
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit(`reviews:put:${ip}`, API_RATE_LIMITS.reviewWrites);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { message: "Слишком много запросов. Попробуйте позже." },
+      {
+        status: 429,
+        headers: getRateLimitHeaders(
+          API_RATE_LIMITS.reviewWrites,
+          0,
+          `reviews:put:${ip}`,
+        ),
+      },
+    );
+  }
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
   const body = await readJson(request);
 
@@ -214,7 +272,7 @@ export async function PUT(request: Request) {
     return jsonMessage("Неверный формат данных.", HTTP_STATUS.badRequest);
   }
 
-  const parsed = createReviewSchema.safeParse(body);
+  const parsed = reviewWriteSchema.safeParse(body);
 
   if (!parsed.success) {
     return jsonMessage("Проверьте поля формы.", HTTP_STATUS.badRequest);
@@ -262,11 +320,32 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+<<<<<<< HEAD
   const rateLimitResponse = createReviewWriteRateLimitResponse(
     request,
     RATE_LIMIT_NAMESPACE.reviewDelete,
   );
   if (rateLimitResponse) return rateLimitResponse;
+=======
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit(
+    `reviews:delete:${ip}`,
+    API_RATE_LIMITS.reviewWrites,
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { message: "Слишком много запросов. Попробуйте позже." },
+      {
+        status: 429,
+        headers: getRateLimitHeaders(
+          API_RATE_LIMITS.reviewWrites,
+          0,
+          `reviews:delete:${ip}`,
+        ),
+      },
+    );
+  }
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
   const { searchParams } = new URL(request.url);
   const teacherId = searchParams.get("teacherId");
@@ -308,13 +387,13 @@ export async function DELETE(request: Request) {
   return NextResponse.json({ ok: true, deleted: true });
 }
 
-function getReviewComment(review: z.infer<typeof createReviewSchema>) {
+function getReviewComment(review: ReviewWriteInput) {
   const parts = getReviewParts(review);
 
   return parts.comment || joinReviewTextParts(parts);
 }
 
-function getReviewParts(review: z.infer<typeof createReviewSchema>) {
+function getReviewParts(review: ReviewWriteInput) {
   return {
     comment: review.comment.trim(),
     liked: review.liked.trim(),
@@ -324,12 +403,13 @@ function getReviewParts(review: z.infer<typeof createReviewSchema>) {
   };
 }
 
-function hasReviewScore(review: z.infer<typeof createReviewSchema>) {
+function hasReviewScore(review: ReviewWriteInput) {
   return Object.values(review.scores).some((value) => typeof value === "number");
 }
 
 function getReviewSort(value: string | null): ReviewSortKey {
-  if (value === "highest" || value === "lowest") return value;
+  const parsed = reviewSortSchema.safeParse(value);
+  if (parsed.success) return parsed.data;
 
   return REVIEW_CONFIG.defaultSort;
 }

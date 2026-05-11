@@ -1,45 +1,50 @@
 "use client";
 
 import Link from "next/link";
+<<<<<<< HEAD
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+=======
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Share2 } from "lucide-react";
+import { ProfileCommentsSection } from "@/components/teacher-profile/profile-comments-section";
+import { ProfileCoursesSection } from "@/components/teacher-profile/profile-courses-section";
+import { ProfileHero } from "@/components/teacher-profile/profile-hero";
+import { ProfileRatingsSection } from "@/components/teacher-profile/profile-ratings-section";
+import { ProfileTabs } from "@/components/teacher-profile/profile-tabs";
+import type {
+  CommentSortKey,
+  TeacherTab,
+} from "@/components/teacher-profile/profile-types";
+import { metrics } from "@/lib/teacher-catalog";
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 import {
-  ArrowLeft,
-  BookOpen,
-  MessageSquareText,
-  Share2,
-  SlidersHorizontal,
-  Star,
-} from "lucide-react";
-import { RatingStars } from "@/components/rating-stars";
-import { ReviewCard } from "@/components/review-card";
-import { TeacherAvatar } from "@/components/teacher-avatar";
-import { metrics } from "@/lib/mock-data";
-import {
-  courseText,
-  facultyText,
   formatCommentCount,
-  formatReviewCount,
   localizeMetrics,
 } from "@/lib/i18n";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
-import { resetTeacherRuntimeData } from "@/lib/teacher-model";
-import { cn } from "@/lib/utils";
+import { APP_ROUTES } from "@/lib/app-routes";
+import { REVIEW_CONFIG } from "@/lib/app-config";
+import { deleteReview, getReviewsPage, getTeachers } from "@/lib/api-client";
+import { useConfirm } from "@/components/confirm-dialog";
+import type { ReviewsPageResponse } from "@/lib/api-contracts";
 import type { Review, Teacher } from "@/lib/types";
 import { readStoredCatalogHref } from "@/lib/catalog-navigation";
 import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
 import { REVIEW_CONFIG, SHARE_COPIED_DISPLAY_MS } from "@/lib/app-config";
 import { useSwipeNavigation } from "@/lib/swipe-navigation";
 
-export type TeacherTab = "ratings" | "courses";
-
-type CommentSortKey = "newest" | "highest" | "lowest";
+export type { TeacherTab } from "@/components/teacher-profile/profile-types";
 
 type TeacherProfileProps = {
   baseTeacher: Teacher;
   activeTab: TeacherTab;
+<<<<<<< HEAD
   baseReviews: Review[];
   catalogHref?: string;
+=======
+  initialReviewsPage: ReviewsPageResponse;
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 };
 
 const COMMENTS_PAGE_SIZE = REVIEW_CONFIG.defaultPageSize;
@@ -163,20 +168,32 @@ const profileCopy: Record<
 export function TeacherProfile({
   baseTeacher,
   activeTab,
+<<<<<<< HEAD
   baseReviews,
   catalogHref = APP_ROUTES.teachers,
+=======
+  initialReviewsPage,
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 }: TeacherProfileProps) {
   const router = useRouter();
   const { language } = usePreferences();
+  const confirm = useConfirm();
   const copy = profileCopy[language];
-  const [teacher, setTeacher] = useState(() => resetTeacherRuntimeData(baseTeacher));
-  const [teacherReviews, setTeacherReviews] = useState<Review[]>(baseReviews);
-  const [ownReview, setOwnReview] = useState<Review | null>(null);
-  const [commentsTotal, setCommentsTotal] = useState(baseReviews.length);
-  const [commentsHasMore, setCommentsHasMore] = useState(false);
-  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [teacher, setTeacher] = useState(baseTeacher);
+  const [teacherReviews, setTeacherReviews] = useState<Review[]>(
+    initialReviewsPage.reviews,
+  );
+  const [ownReview, setOwnReview] = useState<Review | null>(
+    initialReviewsPage.ownReview,
+  );
+  const [commentsTotal, setCommentsTotal] = useState(initialReviewsPage.total);
+  const [commentsHasMore, setCommentsHasMore] = useState(
+    initialReviewsPage.hasMore,
+  );
+  const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentSort, setCommentSort] = useState<CommentSortKey>("newest");
   const [shareStatus, setShareStatus] = useState<string | null>(null);
+<<<<<<< HEAD
   const [backHref, setBackHref] = useState(catalogHref);
   const goBackToCatalog = useCallback(() => {
     router.replace(backHref, { scroll: false });
@@ -198,10 +215,20 @@ export function TeacherProfile({
       ),
     );
   }, [catalogHref]);
+=======
+  const skipInitialCommentLoad = useRef(true);
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
   useEffect(() => {
-    let active = true;
+    if (skipInitialCommentLoad.current) {
+      skipInitialCommentLoad.current = false;
+      return;
+    }
 
+    let active = true;
+    const controller = new AbortController();
+
+<<<<<<< HEAD
     fetch(API_ROUTES.teachers)
       .then((response) => (response.ok ? response.json() : null))
       .then((body: { teachers?: Teacher[] } | null) => {
@@ -218,10 +245,15 @@ export function TeacherProfile({
   useEffect(() => {
     let active = true;
     const params = new URLSearchParams({
+=======
+    setCommentsLoading(true);
+    getReviewsPage({
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
       teacherId: baseTeacher.id,
-      limit: String(COMMENTS_PAGE_SIZE),
-      offset: "0",
+      limit: COMMENTS_PAGE_SIZE,
+      offset: 0,
       sort: commentSort,
+<<<<<<< HEAD
     });
 
     fetch(`${API_ROUTES.reviews}?${params.toString()}`)
@@ -232,12 +264,16 @@ export function TeacherProfile({
         total?: number;
         hasMore?: boolean;
       } | null) => {
+=======
+      signal: controller.signal,
+    })
+      .then((body) => {
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
         if (!active) return;
-
-        setTeacherReviews(body?.reviews ?? []);
-        setOwnReview(body?.ownReview ?? null);
-        setCommentsTotal(body?.total ?? 0);
-        setCommentsHasMore(Boolean(body?.hasMore));
+        setTeacherReviews(body.reviews);
+        setOwnReview(body.ownReview);
+        setCommentsTotal(body.total);
+        setCommentsHasMore(body.hasMore);
       })
       .catch(() => undefined)
       .finally(() => {
@@ -246,6 +282,7 @@ export function TeacherProfile({
 
     return () => {
       active = false;
+      controller.abort();
     };
   }, [baseTeacher.id, commentSort]);
   const comments = teacherReviews;
@@ -283,18 +320,29 @@ export function TeacherProfile({
   }
 
   async function handleDeleteReview(review: Review) {
-    if (!review.canEdit || !window.confirm(copy.deleteConfirm)) {
-      return;
-    }
+    if (!review.canEdit) return;
+    const confirmed = await confirm({
+      message: copy.deleteConfirm,
+      variant: "danger",
+      confirmLabel: language === "ru" ? "Удалить" : language === "zh" ? "删除" : "Delete",
+      cancelLabel: language === "ru" ? "Отмена" : language === "zh" ? "取消" : "Cancel",
+    });
+    if (!confirmed) return;
 
+<<<<<<< HEAD
     const response = await fetch(
       API_ROUTES.reviewForTeacherById(teacher.id, review.id),
       {
         method: "DELETE",
       },
     ).catch(() => null);
+=======
+    const deleted = await deleteReview({ teacherId: teacher.id })
+      .then(() => true)
+      .catch(() => false);
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
-    if (!response?.ok) return;
+    if (!deleted) return;
 
     setTeacherReviews((current) =>
       current.filter((item) => item.id !== review.id),
@@ -302,11 +350,16 @@ export function TeacherProfile({
     setCommentsTotal((current) => Math.max(0, current - 1));
     setOwnReview((current) => (current?.id === review.id ? null : current));
 
+<<<<<<< HEAD
     fetch(API_ROUTES.teachers)
       .then((teachersResponse) =>
         teachersResponse.ok ? teachersResponse.json() : null,
       )
       .then((body: { teachers?: Teacher[] } | null) => {
+=======
+    getTeachers()
+      .then((body) => {
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
         const nextTeacher = body?.teachers?.find((item) => item.id === teacher.id);
         if (nextTeacher) setTeacher(nextTeacher);
       })
@@ -314,14 +367,8 @@ export function TeacherProfile({
   }
 
   async function loadMoreComments() {
-    const params = new URLSearchParams({
-      teacherId: teacher.id,
-      limit: String(COMMENTS_PAGE_SIZE),
-      offset: String(teacherReviews.length),
-      sort: commentSort,
-    });
-
     setCommentsLoading(true);
+<<<<<<< HEAD
     const body = (await fetch(`${API_ROUTES.reviews}?${params.toString()}`)
       .then((response) => (response.ok ? response.json() : null))
       .catch(() => null)) as {
@@ -329,6 +376,14 @@ export function TeacherProfile({
       total?: number;
       hasMore?: boolean;
     } | null;
+=======
+    const body = await getReviewsPage({
+      teacherId: teacher.id,
+      limit: COMMENTS_PAGE_SIZE,
+      offset: teacherReviews.length,
+      sort: commentSort,
+    }).catch(() => null);
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
     setCommentsLoading(false);
 
     setTeacherReviews((current) => [...current, ...(body?.reviews ?? [])]);
@@ -346,11 +401,15 @@ export function TeacherProfile({
     >
       <div className="flex flex-wrap items-center justify-between gap-4 py-5">
         <Link
+<<<<<<< HEAD
           href={backHref}
           onClick={(event) => {
             event.preventDefault();
             goBackToCatalog();
           }}
+=======
+          href={APP_ROUTES.teachers}
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
           className="inline-flex items-center gap-2 text-sm font900 text-slate-600 transition hover:text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -371,6 +430,7 @@ export function TeacherProfile({
         </div>
       </div>
 
+<<<<<<< HEAD
       <section className="overflow-hidden rounded-lg border border-line bg-white shadow-sm">
         <div className="grid gap-6 p-5 md:p-6 xl:grid-cols-[1fr_340px] xl:items-end">
           <div className="flex flex-col gap-5 md:flex-row md:items-center">
@@ -422,9 +482,18 @@ export function TeacherProfile({
           </div>
         </div>
       </section>
+=======
+      <ProfileHero
+        language={language}
+        rateHref={APP_ROUTES.teacherRate(teacher.id)}
+        rateLabel={ownReview ? copy.editRating : copy.rateTeacher}
+        teacher={teacher}
+        topMetrics={topMetrics}
+      />
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
       <div className="mt-6">
-        <TeacherTabs
+        <ProfileTabs
           teacherId={teacher.id}
           activeTab={activeTab}
           courseCount={teacher.courses.length}
@@ -432,6 +501,7 @@ export function TeacherProfile({
         />
 
         {activeTab === "ratings" && (
+<<<<<<< HEAD
           <section className="mt-7">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -541,40 +611,47 @@ export function TeacherProfile({
               )}
             </div>
           </section>
+=======
+          <>
+            <ProfileRatingsSection
+              categorySubtitle={copy.categorySubtitle}
+              categoryTitle={copy.categoryRatings}
+              localizedMetrics={localizedMetrics}
+              overallLabel={copy.overall}
+              teacher={teacher}
+            />
+            <ProfileCommentsSection
+              comments={comments}
+              commentsHasMore={commentsHasMore}
+              commentsLoading={commentsLoading}
+              commentsTotal={commentsTotal}
+              copy={copy}
+              sort={commentSort}
+              teacherId={teacher.id}
+              onDelete={handleDeleteReview}
+              onLoadMore={loadMoreComments}
+              onSortChange={(nextSort) => {
+                setCommentsLoading(true);
+                setCommentSort(nextSort);
+              }}
+            />
+          </>
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
         )}
 
         {activeTab === "courses" && (
-          <section className="mt-7">
-            <h2 className="text-2xl font900">{copy.teacherCourses}</h2>
-            {teacher.courses.length ? (
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                {teacher.courses.map((course) => (
-                  <article
-                    key={course.id}
-                    className="interactive-card rounded-lg border border-line bg-white p-5 shadow-sm hover:border-primary/30"
-                  >
-                    <BookOpen className="h-8 w-8 text-primary" />
-                    <h3 className="mt-4 text-xl font900">{course.title}</h3>
-                    <p className="mt-2 text-sm font800 text-muted">
-                      {courseText[language]}
-                    </p>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-5 rounded-lg border border-dashed border-line bg-white p-6 text-center">
-                <BookOpen className="mx-auto h-10 w-10 text-primary" />
-                <h3 className="mt-3 text-lg font900">
-                  {copy.noCourses}
-                </h3>
-              </div>
-            )}
-          </section>
+          <ProfileCoursesSection
+            courses={teacher.courses}
+            language={language}
+            noCoursesLabel={copy.noCourses}
+            title={copy.teacherCourses}
+          />
         )}
       </div>
     </div>
   );
 }
+<<<<<<< HEAD
 
 function TeacherTabs({
   teacherId,
@@ -616,3 +693,5 @@ function TeacherTabs({
     </nav>
   );
 }
+=======
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)

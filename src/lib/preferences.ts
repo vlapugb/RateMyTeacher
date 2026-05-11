@@ -11,10 +11,13 @@ type Preferences = {
   language: LanguagePreference;
 };
 
+<<<<<<< HEAD
 const THEME_KEY = STORAGE_KEYS.theme;
 const LANGUAGE_KEY = STORAGE_KEYS.language;
 const PREFERENCES_EVENT = STORAGE_KEYS.preferencesEvent;
 
+=======
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 const defaultPreferences: Preferences = {
   theme: "system",
   language: "ru",
@@ -49,14 +52,19 @@ export function usePreferences() {
       applyPreferences(nextPreferences);
     };
 
+<<<<<<< HEAD
     sync();
     window.addEventListener(PREFERENCES_EVENT, sync);
+=======
+    queueMicrotask(sync);
+    window.addEventListener(STORAGE_KEYS.preferencesEvent, sync);
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
     window.addEventListener("storage", sync);
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     media.addEventListener("change", sync);
 
     return () => {
-      window.removeEventListener(PREFERENCES_EVENT, sync);
+      window.removeEventListener(STORAGE_KEYS.preferencesEvent, sync);
       window.removeEventListener("storage", sync);
       media.removeEventListener("change", sync);
     };
@@ -64,7 +72,7 @@ export function usePreferences() {
 
   const setTheme = useCallback((theme: ThemePreference) => {
     try {
-      window.localStorage.setItem(THEME_KEY, theme);
+      window.localStorage.setItem(STORAGE_KEYS.theme, theme);
     } catch (error) {
       console.error("Failed to save theme preference", error);
     }
@@ -73,7 +81,7 @@ export function usePreferences() {
 
   const setLanguage = useCallback((language: LanguagePreference) => {
     try {
-      window.localStorage.setItem(LANGUAGE_KEY, language);
+      window.localStorage.setItem(STORAGE_KEYS.language, language);
     } catch (error) {
       console.error("Failed to save language preference", error);
     }
@@ -94,8 +102,8 @@ function readPreferences(): Preferences {
   let language: string | null = null;
 
   try {
-    theme = window.localStorage.getItem(THEME_KEY);
-    language = window.localStorage.getItem(LANGUAGE_KEY);
+    theme = window.localStorage.getItem(STORAGE_KEYS.theme);
+    language = window.localStorage.getItem(STORAGE_KEYS.language);
   } catch {
     return defaultPreferences;
   }
@@ -122,7 +130,7 @@ function applyPreferences(preferences: Preferences) {
 }
 
 function notifyPreferencesChanged() {
-  window.dispatchEvent(new Event(PREFERENCES_EVENT));
+  window.dispatchEvent(new Event(STORAGE_KEYS.preferencesEvent));
 }
 
 function isThemePreference(value: string | null): value is ThemePreference {

@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+<<<<<<< HEAD
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
   ChevronLeft,
   ChevronRight,
+=======
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   MessageSquareText,
-  Search,
-  Sparkles,
   Star,
   UsersRound,
-  X,
 } from "lucide-react";
+<<<<<<< HEAD
 import { metrics, teachers } from "@/lib/mock-data";
 import { TeacherCard } from "@/components/teacher-card";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,24 @@ type CatalogViewProps = {
   initialOrder?: string;
   initialPage?: number;
 };
+=======
+import { metrics } from "@/lib/teacher-catalog";
+import { CatalogControls } from "@/components/catalog/catalog-controls";
+import { CatalogIntro } from "@/components/catalog/catalog-intro";
+import {
+  CatalogPagination,
+  type PaginationItem,
+} from "@/components/catalog/catalog-pagination";
+import { CatalogSummary } from "@/components/catalog/catalog-summary";
+import type { CatalogSortKey } from "@/components/catalog/catalog-types";
+import { TeacherGrid } from "@/components/catalog/teacher-grid";
+import type { Teacher } from "@/lib/types";
+import { usePreferences, type LanguagePreference } from "@/lib/preferences";
+import { localizeMetrics } from "@/lib/i18n";
+import { STORAGE_KEYS } from "@/lib/app-config";
+
+const PAGE_SIZE = 6;
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
 const catalogCopy: Record<
   LanguagePreference,
@@ -86,8 +105,6 @@ const catalogCopy: Record<
     of: string;
     previousPage: string;
     nextPage: string;
-    loading: string;
-    loadFailed: string;
   }
 > = {
   ru: {
@@ -126,8 +143,6 @@ const catalogCopy: Record<
     of: "из",
     previousPage: "Предыдущая страница",
     nextPage: "Следующая страница",
-    loading: "Обновляем каталог...",
-    loadFailed: "Не удалось обновить каталог. Показаны сохраненные данные.",
   },
   en: {
     title: "Find a teacher",
@@ -165,8 +180,6 @@ const catalogCopy: Record<
     of: "of",
     previousPage: "Previous page",
     nextPage: "Next page",
-    loading: "Refreshing catalog...",
-    loadFailed: "Could not refresh the catalog. Showing cached data.",
   },
   zh: {
     title: "查找教师",
@@ -203,23 +216,30 @@ const catalogCopy: Record<
     of: "共",
     previousPage: "上一页",
     nextPage: "下一页",
-    loading: "正在刷新目录...",
-    loadFailed: "无法刷新目录，正在显示缓存数据。",
   },
 };
 
+<<<<<<< HEAD
 export function CatalogView({
   initialQuery = "",
   initialSort,
   initialOrder,
   initialPage = 1,
 }: CatalogViewProps) {
+=======
+type CatalogViewProps = {
+  initialTeachers: Teacher[];
+};
+
+export function CatalogView({ initialTeachers }: CatalogViewProps) {
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   const { language } = usePreferences();
   const copy = catalogCopy[language];
   const localizedMetrics = useMemo(
     () => localizeMetrics(metrics, language),
     [language],
   );
+<<<<<<< HEAD
   const savedState = typeof window === "undefined" ? null : readSavedCatalogState();
   const effectiveQuery = initialQuery || savedState?.query || "";
   const effectiveSort = initialSort || savedState?.sort || undefined;
@@ -240,11 +260,17 @@ export function CatalogView({
         ? Math.floor(effectivePage)
         : 1,
   );
+=======
+  const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState<CatalogSortKey>("rating");
+  const [currentPage, setCurrentPage] = useState(1);
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   const [showIntro, setShowIntro] = useState(() => {
     if (typeof window === "undefined") return false;
 
-    return window.localStorage.getItem(INTRO_STORAGE_KEY) !== "true";
+    return window.localStorage.getItem(STORAGE_KEYS.introDismissed) !== "true";
   });
+<<<<<<< HEAD
   const [initialCachedTeachers] = useState(() => readCachedTeachers());
   const [catalogTeachers, setCatalogTeachers] = useState<Teacher[]>(
     () => initialCachedTeachers ?? resetTeachersRuntimeData(teachers),
@@ -285,16 +311,21 @@ export function CatalogView({
       });
     }
   }, [initialCachedTeachers]);
+=======
+  const [catalogTeachers, setCatalogTeachers] =
+    useState<Teacher[]>(initialTeachers);
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
   useEffect(() => {
     if (!showIntro) return;
     const timer = window.setTimeout(() => {
-      window.localStorage.setItem(INTRO_STORAGE_KEY, "true");
+      window.localStorage.setItem(STORAGE_KEYS.introDismissed, "true");
       setShowIntro(false);
     }, CATALOG_CONFIG.introDismissDelayMs);
     return () => window.clearTimeout(timer);
   }, [showIntro]);
 
+<<<<<<< HEAD
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
@@ -421,6 +452,8 @@ export function CatalogView({
     }
   }, []);
 
+=======
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   const totalReviews = useMemo(
     () => catalogTeachers.reduce((sum, teacher) => sum + teacher.reviewCount, 0),
     [catalogTeachers],
@@ -544,6 +577,11 @@ export function CatalogView({
     });
   }, [query, sortDirection, sortKey, visiblePage]);
 
+  function dismissIntro() {
+    window.localStorage.setItem(STORAGE_KEYS.introDismissed, "true");
+    setShowIntro(false);
+  }
+
   return (
     <div className="px-3 pb-6 sm:px-5 sm:pb-8 md:px-8">
       <section className="pt-4 sm:pt-6">
@@ -556,6 +594,7 @@ export function CatalogView({
           </h1>
         </div>
 
+<<<<<<< HEAD
         <div className="mt-4 grid w-full max-w-3xl grid-cols-3 gap-2 sm:mt-6 sm:gap-3">
           <SummaryButton
             Icon={UsersRound}
@@ -690,46 +729,48 @@ export function CatalogView({
             {catalogError ?? copy.loading}
           </p>
         )}
+=======
+        <CatalogSummary
+          items={[
+            { Icon: UsersRound, value: catalogTeachers.length, label: copy.teachers },
+            { Icon: Star, value: totalReviews, label: copy.reviews },
+            { Icon: MessageSquareText, value: totalComments, label: copy.comments },
+          ]}
+        />
+
+        <CatalogControls
+          allLabel={copy.all}
+          byCommentsLabel={copy.byComments}
+          byRatingLabel={copy.byRating}
+          byReviewsLabel={copy.byReviews}
+          localizedMetrics={localizedMetrics}
+          query={query}
+          searchLabel={copy.search}
+          sortingLabel={copy.sorting}
+          sortKey={sortKey}
+          onQueryChange={(nextQuery) => {
+            setQuery(nextQuery);
+            setCurrentPage(1);
+          }}
+          onSortChange={(nextSortKey) => {
+            setSortKey(nextSortKey);
+            setCurrentPage(1);
+          }}
+        />
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
         {showIntro && (
-          <div className="mt-5 max-w-full animate-slide-in overflow-hidden rounded-lg border border-line bg-primary-soft p-4 shadow-sm sm:mt-7 sm:p-5">
-            <div className="flex items-start gap-3 sm:gap-4">
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-primary shadow-sm sm:h-14 sm:w-14">
-                <Sparkles className="h-6 w-6 sm:h-8 sm:w-8" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-base font900 sm:text-lg">{copy.introTitle}</h2>
-                <p className="mt-1 max-w-2xl text-xs font-semibold leading-5 text-slate-600 sm:text-sm sm:leading-6">
-                  {copy.introText}
-                </p>
-                <button
-                  type="button"
-                  className="mt-3 text-xs font800 text-primary underline-offset-4 hover:underline"
-                  onClick={() => {
-                    window.localStorage.setItem(INTRO_STORAGE_KEY, "true");
-                    setShowIntro(false);
-                  }}
-                >
-                  {copy.introDismiss}
-                </button>
-              </div>
-              <button
-                type="button"
-                className="focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-white hover:text-primary"
-                aria-label={copy.introClose}
-                title={copy.introClose}
-                onClick={() => {
-                  window.localStorage.setItem(INTRO_STORAGE_KEY, "true");
-                  setShowIntro(false);
-                }}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
+          <CatalogIntro
+            closeLabel={copy.introClose}
+            dismissLabel={copy.introDismiss}
+            text={copy.introText}
+            title={copy.introTitle}
+            onDismiss={dismissIntro}
+          />
         )}
       </section>
 
+<<<<<<< HEAD
       <section
         id="teacher-list"
         ref={teacherListRef}
@@ -809,10 +850,38 @@ export function CatalogView({
           </button>
         </div>
       </footer>
+=======
+      <TeacherGrid
+        teachers={visibleTeachers}
+        onFavoriteChange={(teacherId, saved) => {
+          setCatalogTeachers((current) =>
+            current.map((item) =>
+              item.id === teacherId ? { ...item, saved } : item,
+            ),
+          );
+        }}
+      />
+
+      <CatalogPagination
+        currentPage={currentPage}
+        end={end}
+        itemLabel={copy.teachers}
+        items={paginationItems}
+        nextLabel={copy.nextPage}
+        pageCount={pageCount}
+        previousLabel={copy.previousPage}
+        shownLabel={copy.shown}
+        start={start}
+        total={filteredTeachers.length}
+        totalLabel={copy.of}
+        onPageChange={setCurrentPage}
+      />
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
     </div>
   );
 }
 
+<<<<<<< HEAD
 function SummaryButton({
   Icon,
   value,
@@ -940,6 +1009,8 @@ function RecentActivityList({
 
 type PaginationItem = number | "gap-left" | "gap-right";
 
+=======
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 function getPaginationItems(currentPage: number, pageCount: number) {
   const windowRadius = 2;
   const windowStart = Math.max(1, currentPage - windowRadius);
@@ -963,7 +1034,7 @@ function getPaginationItems(currentPage: number, pageCount: number) {
   return pages;
 }
 
-function getSortValue(teacher: Teacher, sortKey: SortKey) {
+function getSortValue(teacher: Teacher, sortKey: CatalogSortKey) {
   if (sortKey === "reviewCount") {
     return teacher.reviewCount;
   }

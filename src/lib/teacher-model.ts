@@ -1,5 +1,6 @@
 import { REVIEW_IDENTITY } from "@/lib/app-config";
 import type { MetricKey, Review, Teacher } from "@/lib/types";
+import { RATING_SCALE } from "@/lib/app-config";
 
 export type TeacherScoreMap = Record<MetricKey, number>;
 
@@ -52,23 +53,23 @@ export function applyStatsToTeacher(
     return { ...baseTeacher, saved };
   }
 
+  const ratingValues = Object.values(stats.scores).filter(
+    (value): value is number => typeof value === "number",
+  );
+  const rating =
+    stats.scores.overall ??
+    (ratingValues.length > 0
+      ? roundScore(
+          ratingValues.reduce((sum, value) => sum + value, 0) /
+            ratingValues.length,
+        )
+      : 0);
   const scores = {
     ...emptyScores,
     ...Object.fromEntries(
       Object.entries(stats.scores).map(([key, value]) => [key, value ?? 0]),
     ),
   } as TeacherScoreMap;
-  const scoreValues = Object.values(scores).filter(
-    (value) => typeof value === "number",
-  );
-  const rating =
-    scores.overall ??
-    (scoreValues.length > 0
-      ? roundScore(
-          scoreValues.reduce((sum, value) => sum + value, 0) /
-            scoreValues.length,
-        )
-      : 0);
 
   return {
     ...baseTeacher,
@@ -160,7 +161,8 @@ function formatCreatedAgo(createdAt: string) {
 
 export function roundScore(value: number) {
   if (!Number.isFinite(value)) return 0;
-  return Math.round(value * 100) / 100;
+  return Math.round(value * RATING_SCALE.roundingPrecision) /
+    RATING_SCALE.roundingPrecision;
 }
 
 export function joinReviewTextParts(parts: {

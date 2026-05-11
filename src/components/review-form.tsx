@@ -1,15 +1,23 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Star } from "lucide-react";
 import { useAuthDialog } from "@/components/auth-dialog-context";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
-import { metrics, teachers } from "@/lib/mock-data";
+import { metrics, teachers } from "@/lib/teacher-catalog";
 import { facultyText, localizeMetrics } from "@/lib/i18n";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
+import {
+  ApiRequestError,
+  createReview,
+  deleteReview,
+  updateReview,
+} from "@/lib/api-client";
+import { useConfirm } from "@/components/confirm-dialog";
+import { APP_ROUTES } from "@/lib/app-routes";
 import type { MetricKey, Review } from "@/lib/types";
 import {
   API_ROUTES,
@@ -24,6 +32,7 @@ import { cn } from "@/lib/utils";
 
 type ReviewFormProps = {
   teacherId?: string;
+  initialOwnReview?: Review | null;
 };
 
 const defaultScores = (): Partial<Record<MetricKey, number>> => ({});
@@ -160,12 +169,16 @@ const reviewFormCopy: Record<
   },
 };
 
-export function ReviewForm({ teacherId }: ReviewFormProps) {
+export function ReviewForm({
+  teacherId,
+  initialOwnReview = null,
+}: ReviewFormProps) {
   const router = useRouter();
   const { openAuthDialog } = useAuthDialog();
   const session = authClient.useSession();
   const user = session.data?.user;
   const { language } = usePreferences();
+  const confirm = useConfirm();
   const copy = reviewFormCopy[language];
   const localizedMetrics = useMemo(
     () => localizeMetrics(metrics, language),
@@ -175,15 +188,23 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
     () => teachers.find((item) => item.id === teacherId) ?? teachers[0],
     [teacherId],
   );
-  const [scores, setScores] =
-    useState<Partial<Record<MetricKey, number>>>(defaultScores);
-  const [draft, setDraft] = useState(defaultDraft);
-  const [ownReview, setOwnReview] = useState<Review | null>(null);
-  const [publishAnonymously, setPublishAnonymously] = useState(false);
+  const [scores, setScores] = useState<Partial<Record<MetricKey, number>>>(
+    () => initialOwnReview?.scores ?? defaultScores(),
+  );
+  const [draft, setDraft] = useState(() =>
+    initialOwnReview
+      ? { comment: getReviewComment(initialOwnReview) }
+      : defaultDraft,
+  );
+  const [ownReview, setOwnReview] = useState<Review | null>(initialOwnReview);
+  const [publishAnonymously, setPublishAnonymously] = useState(
+    Boolean(initialOwnReview?.anonymous),
+  );
   const [status, setStatus] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+<<<<<<< HEAD
   useEffect(() => {
     let active = true;
 
@@ -206,6 +227,8 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
     };
   }, [teacher.id]);
 
+=======
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -244,20 +267,32 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
       publishAnonymously: !user || publishAnonymously,
     };
 
+<<<<<<< HEAD
     const response = await fetch(API_ROUTES.reviews, {
       method: ownReview ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }).catch(() => null);
+=======
+    const response = await (ownReview
+      ? updateReview(payload)
+      : createReview(payload)
+    )
+      .then(() => ({ ok: true, status: 200 }))
+      .catch((error) => ({
+        ok: false,
+        status: error instanceof ApiRequestError ? error.status : 0,
+      }));
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
     setSubmitting(false);
 
-    if (!response?.ok) {
-      if (!response) {
+    if (!response.ok) {
+      if (response.status === 0) {
         setStatus(copy.submitFailed);
         return;
       }
-      setAuthRequired(response?.status === 401);
+      setAuthRequired(response.status === 401);
       setStatus(getSubmitErrorMessage(response.status, copy));
       return;
     }
@@ -272,20 +307,31 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
   }
 
   async function handleDelete() {
-    if (!ownReview || !window.confirm(copy.deleteConfirm)) {
-      return;
-    }
+    if (!ownReview) return;
+    const confirmed = await confirm({
+      message: copy.deleteConfirm,
+      variant: "danger",
+      confirmLabel: language === "ru" ? "Удалить" : language === "zh" ? "删除" : "Delete",
+      cancelLabel: language === "ru" ? "Отмена" : language === "zh" ? "取消" : "Cancel",
+    });
+    if (!confirmed) return;
 
     setSubmitting(true);
     setStatus(null);
 
+<<<<<<< HEAD
     const response = await fetch(API_ROUTES.reviewsForTeacher(teacher.id), {
       method: "DELETE",
     }).catch(() => null);
+=======
+    const deleted = await deleteReview({ teacherId: teacher.id })
+      .then(() => true)
+      .catch(() => false);
+>>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
     setSubmitting(false);
 
-    if (!response?.ok) {
+    if (!deleted) {
       setStatus(copy.deleteFailed);
       return;
     }
