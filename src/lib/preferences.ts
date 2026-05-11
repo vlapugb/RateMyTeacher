@@ -11,13 +11,6 @@ type Preferences = {
   language: LanguagePreference;
 };
 
-<<<<<<< HEAD
-const THEME_KEY = STORAGE_KEYS.theme;
-const LANGUAGE_KEY = STORAGE_KEYS.language;
-const PREFERENCES_EVENT = STORAGE_KEYS.preferencesEvent;
-
-=======
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 const defaultPreferences: Preferences = {
   theme: "system",
   language: "ru",
@@ -52,13 +45,8 @@ export function usePreferences() {
       applyPreferences(nextPreferences);
     };
 
-<<<<<<< HEAD
-    sync();
-    window.addEventListener(PREFERENCES_EVENT, sync);
-=======
     queueMicrotask(sync);
     window.addEventListener(STORAGE_KEYS.preferencesEvent, sync);
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
     window.addEventListener("storage", sync);
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     media.addEventListener("change", sync);

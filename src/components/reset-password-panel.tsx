@@ -7,11 +7,7 @@ import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthDialog } from "@/components/auth-dialog-context";
 import { STUDENT_IDENTITY } from "@/lib/app-config";
-<<<<<<< HEAD
-import { APP_ROUTES, API_ROUTES } from "@/lib/app-routes";
-=======
 import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 
 const resetCopy: Record<

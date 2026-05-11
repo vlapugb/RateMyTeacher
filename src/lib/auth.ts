@@ -6,13 +6,6 @@ import { pool } from "@/db/client";
 import { requireServerEnv } from "@/lib/env";
 import { APP_NAME, STUDENT_IDENTITY } from "@/lib/app-config";
 import {
-<<<<<<< HEAD
-  APP_NAME,
-  STUDENT_IDENTITY,
-} from "@/lib/app-config";
-import {
-=======
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   isStudentEmailMatchingLogin,
   isStudentLogin,
   normalizeStudentIdentifier,

@@ -7,15 +7,9 @@ import type { MetricKey, Review, Teacher } from "@/lib/types";
 import {
   applyStatsToTeacher,
   createPublicReview,
-  joinReviewTextParts,
   resetTeachersRuntimeData,
   type TeacherStats,
 } from "@/lib/teacher-model";
-import {
-  RATING_SCALE,
-  REVIEW_CONFIG,
-  REVIEW_IDENTITY,
-} from "@/lib/app-config";
 
 type TeacherReviewRow = {
   id: string;
@@ -52,12 +46,6 @@ type TeacherStatsRow = {
   overall: string | null;
 };
 
-<<<<<<< HEAD
-export type ReviewSortKey = "newest" | "highest" | "lowest";
-export type RecentReviewKind = "reviews" | "comments";
-
-=======
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 type ReviewPage = {
   reviews: Review[];
   total: number;
@@ -65,17 +53,6 @@ type ReviewPage = {
 
 let initialized = false;
 let initializationPromise: Promise<void> | null = null;
-<<<<<<< HEAD
-const REVIEW_SCORE_COLUMNS = [
-  "knowledge",
-  "communication",
-  "leniency",
-  "fairness",
-  "vibe",
-  "overall",
-] as const satisfies MetricKey[];
-=======
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 let teacherStatsCache:
   | {
       expiresAt: number;
@@ -209,7 +186,16 @@ async function initializeTeacherRuntimeTables() {
 }
 
 async function ensureTeacherReviewScoreConstraints() {
-  for (const column of REVIEW_SCORE_COLUMNS) {
+  const scoreColumns = [
+    "knowledge",
+    "communication",
+    "leniency",
+    "fairness",
+    "vibe",
+    "overall",
+  ] as const;
+
+  for (const column of scoreColumns) {
     await db.execute(sql.raw(`
       do $$
       begin
@@ -319,7 +305,6 @@ export async function getPublicReviews(
     limit?: number;
     offset?: number;
     sort?: ReviewSortKey;
-    canModerate?: boolean;
   } = {},
 ) {
   const page = await getPublicReviewsPage({
@@ -328,10 +313,6 @@ export async function getPublicReviews(
     limit: options.limit ?? REVIEW_CONFIG.maxPageSize,
     offset: options.offset ?? 0,
     sort: options.sort ?? REVIEW_CONFIG.defaultSort,
-<<<<<<< HEAD
-    canModerate: options.canModerate,
-=======
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   });
 
   return page.reviews;
@@ -343,7 +324,6 @@ export async function getPublicReviewsPage(input: {
   limit: number;
   offset: number;
   sort: ReviewSortKey;
-  canModerate?: boolean;
 }): Promise<ReviewPage> {
   await ensureTeacherRuntimeTables();
 
@@ -363,94 +343,10 @@ export async function getPublicReviewsPage(input: {
 
   return {
     reviews: (result.rows as TeacherReviewRow[])
-      .map((row) =>
-        rowToPublicReview(
-          row,
-          input.canModerate === true || row.user_id === input.userId,
-        ),
-      )
+      .map((row) => rowToPublicReview(row, row.user_id === input.userId))
       .filter((review) => review.body.length > 0),
     total: Number(countRow?.total ?? 0),
   };
-}
-
-export async function getRecentPublicReviews(input: {
-  kind: RecentReviewKind;
-  userId?: string;
-  limit: number;
-}) {
-  await ensureTeacherRuntimeTables();
-
-  const limit = Math.min(REVIEW_CONFIG.maxPageSize, Math.max(1, input.limit));
-  const result =
-    input.kind === "comments"
-      ? await getRecentPublicCommentRows(input.userId, limit)
-      : await getRecentPublicRatingRows(input.userId, limit);
-
-  return (result.rows as TeacherReviewRow[]).map((row) =>
-    rowToPublicReview(row, row.user_id === input.userId),
-  );
-}
-
-function getRecentPublicCommentRows(userId: string | undefined, limit: number) {
-  return db.execute(sql`
-    select
-      review.*,
-      coalesce(likes.like_count, 0) as like_count,
-      case
-        when ${userId ?? null}::text is null then false
-        else exists (
-          select 1
-          from teacher_review_likes own_like
-          where own_like.review_id = review.id
-            and own_like.user_id = ${userId ?? null}
-        )
-      end as liked_by_me
-    from teacher_reviews review
-    left join lateral (
-      select count(*) as like_count
-      from teacher_review_likes review_like
-      where review_like.review_id = review.id
-    ) likes on true
-    where review.status = ${REVIEW_CONFIG.approvedStatus}
-      and length(trim(review.comment || review.liked || review.difficult || review.exam_process || review.advice)) > 0
-    order by review.created_at desc
-    limit ${limit}
-  `);
-}
-
-function getRecentPublicRatingRows(userId: string | undefined, limit: number) {
-  return db.execute(sql`
-    select
-      review.*,
-      coalesce(likes.like_count, 0) as like_count,
-      case
-        when ${userId ?? null}::text is null then false
-        else exists (
-          select 1
-          from teacher_review_likes own_like
-          where own_like.review_id = review.id
-            and own_like.user_id = ${userId ?? null}
-        )
-      end as liked_by_me
-    from teacher_reviews review
-    left join lateral (
-      select count(*) as like_count
-      from teacher_review_likes review_like
-      where review_like.review_id = review.id
-    ) likes on true
-    where review.status = ${REVIEW_CONFIG.approvedStatus}
-      and (
-        review.knowledge is not null
-        or review.communication is not null
-        or review.leniency is not null
-        or review.fairness is not null
-        or review.vibe is not null
-        or review.overall is not null
-      )
-    order by review.created_at desc
-    limit ${limit}
-  `);
 }
 
 function getPublicReviewsPageRows(
@@ -788,22 +684,6 @@ export async function deleteTeacherReview(teacherId: string, userId: string) {
   return deleted;
 }
 
-export async function deleteTeacherReviewById(reviewId: string) {
-  await ensureTeacherRuntimeTables();
-
-  const result = await db.execute(sql`
-    delete from teacher_reviews
-    where id = ${reviewId}
-    returning id
-  `);
-
-  const deleted = result.rows.length > 0;
-
-  if (deleted) invalidateTeacherStatsCache();
-
-  return deleted;
-}
-
 export async function getFavoriteTeacherIds(userId: string) {
   await ensureTeacherRuntimeTables();
 
@@ -952,19 +832,17 @@ function rowToPublicReview(row: TeacherReviewRow, canEdit = false): Review {
   return createPublicReview({
     id: row.id,
     teacherId: row.teacher_id,
-    author: row.author_name ?? REVIEW_IDENTITY.studentLabel,
-    course: REVIEW_IDENTITY.generalCourseLabel,
+    author: row.author_name ?? "Студент",
+    course: "Общая оценка преподавателя",
     createdAt,
     rating: getReviewRating(row),
     hasRating,
     body:
       row.comment.trim() ||
-      joinReviewTextParts({
-        liked: row.liked,
-        difficult: row.difficult,
-        examProcess: row.exam_process,
-        advice: row.advice,
-      }),
+      [row.liked, row.difficult, row.exam_process, row.advice]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(" "),
     anonymous: row.anonymous,
     anonymousNumber:
       row.anonymous_number == null ? undefined : Number(row.anonymous_number),

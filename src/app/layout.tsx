@@ -2,13 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
-<<<<<<< HEAD
-import { STORAGE_KEYS } from "@/lib/app-config";
-
-const YANDEX_METRIKA_ID = 109136434;
-=======
 import { ANALYTICS_CONFIG, APP_NAME } from "@/lib/app-config";
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -21,32 +15,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" suppressHydrationWarning>
+    <html lang="ru">
       <body>
-<<<<<<< HEAD
-        <Script id="preferences-bootstrap" strategy="beforeInteractive">
-          {`
-            (function() {
-              try {
-                var themePreference = localStorage.getItem('${STORAGE_KEYS.theme}') || 'system';
-                var language = localStorage.getItem('${STORAGE_KEYS.language}') || 'ru';
-                var resolvedTheme = themePreference === 'system'
-                  ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-                  : themePreference;
-                document.documentElement.dataset.theme = resolvedTheme;
-                document.documentElement.dataset.themePreference = themePreference;
-                document.documentElement.lang = language;
-              } catch (error) {}
-            })();
-          `}
-        </Script>
-        <Script id="yandex-metrika" strategy="afterInteractive">
-          {`
-=======
         {ANALYTICS_CONFIG.yandexMetrikaId && (
           <Script id="yandex-metrika" strategy="afterInteractive">
             {`
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
             (function(m,e,t,r,i,k,a){
               m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
               m[i].l=1*new Date();

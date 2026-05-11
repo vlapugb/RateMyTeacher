@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-<<<<<<< HEAD
-import { teachers } from "@/lib/mock-data";
-import { joinReviewTextParts } from "@/lib/teacher-model";
-=======
 import { API_RATE_LIMITS, REVIEW_CONFIG } from "@/lib/app-config";
 import {
   reviewSortSchema,
@@ -13,100 +9,33 @@ import {
 } from "@/lib/api-contracts";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
 import { teachers } from "@/lib/teacher-catalog";
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 import {
   createTeacherReview,
   deleteTeacherReview,
-  deleteTeacherReviewById,
   getOwnReview,
   getPublicReviewsPage,
   updateTeacherReview,
 } from "@/lib/teacher-store";
-import { isModeratorUser } from "@/lib/moderation";
-import {
-  API_RATE_LIMITS,
-  HTTP_STATUS,
-  RATE_LIMIT_NAMESPACE,
-  RATING_SCALE,
-  REVIEW_CONFIG,
-} from "@/lib/app-config";
-import {
-  createRateLimitResponse,
-  jsonMessage,
-  parseBoundedInteger,
-  readJson,
-} from "@/lib/http";
 
-<<<<<<< HEAD
-const scoreSchema = z.object({
-  knowledge: z.number().min(RATING_SCALE.min).max(RATING_SCALE.max).optional(),
-  communication: z
-    .number()
-    .min(RATING_SCALE.min)
-    .max(RATING_SCALE.max)
-    .optional(),
-  leniency: z.number().min(RATING_SCALE.min).max(RATING_SCALE.max).optional(),
-  fairness: z.number().min(RATING_SCALE.min).max(RATING_SCALE.max).optional(),
-  vibe: z.number().min(RATING_SCALE.min).max(RATING_SCALE.max).optional(),
-  overall: z.number().min(RATING_SCALE.min).max(RATING_SCALE.max).optional(),
-});
-
-const createReviewSchema = z
-  .object({
-    teacherId: z.string().min(1),
-    scores: scoreSchema,
-    comment: z.string().max(REVIEW_CONFIG.textMaxLength).default(""),
-    liked: z.string().max(REVIEW_CONFIG.textMaxLength).default(""),
-    difficult: z.string().max(REVIEW_CONFIG.textMaxLength).default(""),
-    examProcess: z.string().max(REVIEW_CONFIG.textMaxLength).default(""),
-    advice: z.string().max(REVIEW_CONFIG.textMaxLength).default(""),
-    anonymous: z.boolean().default(false),
-    publishAnonymously: z.boolean().default(false),
-  })
-  .refine(
-    (review) =>
-      Object.values(review.scores).some((value) => typeof value === "number") ||
-      [
-        review.comment,
-        review.liked,
-        review.difficult,
-        review.examProcess,
-        review.advice,
-      ].some((value) => value.trim().length > 0),
-    { message: "Поставьте хотя бы одну оценку или заполните комментарий." },
-  );
-
-=======
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 export async function GET(request: Request) {
   const session = await auth.api.getSession({
     headers: request.headers,
   });
-  const canModerate = isModeratorUser(session?.user);
   const { searchParams } = new URL(request.url);
   const teacherId = searchParams.get("teacherId");
-<<<<<<< HEAD
-  const limit = parseBoundedInteger(searchParams.get("limit"), {
-    fallback: REVIEW_CONFIG.defaultPageSize,
-    min: 1,
-    max: REVIEW_CONFIG.maxPageSize,
-  });
-  const offset = parseBoundedInteger(searchParams.get("offset"), {
-    fallback: 0,
-    min: 0,
-  });
-=======
   const limit = clampNumber(
     Number(searchParams.get("limit") ?? REVIEW_CONFIG.defaultPageSize),
     1,
     REVIEW_CONFIG.maxPageSize,
   );
   const offset = Math.max(0, Number(searchParams.get("offset") ?? 0) || 0);
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   const sort = getReviewSort(searchParams.get("sort"));
 
   if (!teacherId) {
-    return jsonMessage("Не указан преподаватель.", HTTP_STATUS.badRequest);
+    return NextResponse.json(
+      { message: "Не указан преподаватель." },
+      { status: 400 },
+    );
   }
 
   const [reviewsPage, ownReview] = await Promise.all([
@@ -116,7 +45,6 @@ export async function GET(request: Request) {
       limit,
       offset,
       sort,
-      canModerate,
     }),
     session ? getOwnReview(teacherId, session.user.id) : null,
   ]);
@@ -132,13 +60,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-<<<<<<< HEAD
-  const rateLimitResponse = createReviewWriteRateLimitResponse(
-    request,
-    RATE_LIMIT_NAMESPACE.reviewPost,
-  );
-  if (rateLimitResponse) return rateLimitResponse;
-=======
   const ip = getClientIp(request);
   const rateLimit = checkRateLimit(`reviews:post:${ip}`, API_RATE_LIMITS.reviewWrites);
   if (!rateLimit.allowed) {
@@ -154,22 +75,30 @@ export async function POST(request: Request) {
       },
     );
   }
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
   const body = await readJson(request);
 
   if (body === null) {
-    return jsonMessage("Неверный формат данных.", HTTP_STATUS.badRequest);
+    return NextResponse.json(
+      { message: "Неверный формат данных." },
+      { status: 400 },
+    );
   }
 
   const parsed = reviewWriteSchema.safeParse(body);
 
   if (!parsed.success) {
-    return jsonMessage("Проверьте поля формы.", HTTP_STATUS.badRequest);
+    return NextResponse.json(
+      { message: "Проверьте поля формы." },
+      { status: 400 },
+    );
   }
 
   if (!teachers.some((teacher) => teacher.id === parsed.data.teacherId)) {
-    return jsonMessage("Преподаватель не найден.", HTTP_STATUS.notFound);
+    return NextResponse.json(
+      { message: "Преподаватель не найден." },
+      { status: 404 },
+    );
   }
 
   const session = await auth.api.getSession({
@@ -182,14 +111,17 @@ export async function POST(request: Request) {
 
   if (!session) {
     if (hasScore) {
-      return jsonMessage(
-        "Войдите, чтобы поставить оценку. Комментарий можно оставить анонимно.",
-        HTTP_STATUS.unauthorized,
+      return NextResponse.json(
+        { message: "Войдите, чтобы поставить оценку. Комментарий можно оставить анонимно." },
+        { status: 401 },
       );
     }
 
     if (!hasComment) {
-      return jsonMessage("Заполните комментарий.", HTTP_STATUS.badRequest);
+      return NextResponse.json(
+        { message: "Заполните комментарий." },
+        { status: 400 },
+      );
     }
 
     await createTeacherReview({
@@ -203,26 +135,23 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       { ok: true, published: true, anonymous: true },
-      { status: HTTP_STATUS.created },
+      { status: 201 },
     );
   }
 
   if (hasScore && !session.user.emailVerified) {
-    return jsonMessage(
-      "Подтвердите почту перед публикацией оценки.",
-      HTTP_STATUS.forbidden,
+    return NextResponse.json(
+      { message: "Подтвердите почту перед публикацией оценки." },
+      { status: 403 },
     );
   }
 
-  const existingReview = await getOwnReview(
-    parsed.data.teacherId,
-    session.user.id,
-  );
+  const existingReview = await getOwnReview(parsed.data.teacherId, session.user.id);
 
   if (existingReview) {
-    return jsonMessage(
-      "Вы уже оценили этого преподавателя. Измените существующий отзыв.",
-      HTTP_STATUS.conflict,
+    return NextResponse.json(
+      { message: "Вы уже оценили этого преподавателя. Измените существующий отзыв." },
+      { status: 409 },
     );
   }
 
@@ -235,20 +164,10 @@ export async function POST(request: Request) {
     anonymous: parsed.data.publishAnonymously || parsed.data.anonymous,
   });
 
-  return NextResponse.json(
-    { ok: true, published: true },
-    { status: HTTP_STATUS.created },
-  );
+  return NextResponse.json({ ok: true, published: true }, { status: 201 });
 }
 
 export async function PUT(request: Request) {
-<<<<<<< HEAD
-  const rateLimitResponse = createReviewWriteRateLimitResponse(
-    request,
-    RATE_LIMIT_NAMESPACE.reviewPut,
-  );
-  if (rateLimitResponse) return rateLimitResponse;
-=======
   const ip = getClientIp(request);
   const rateLimit = checkRateLimit(`reviews:put:${ip}`, API_RATE_LIMITS.reviewWrites);
   if (!rateLimit.allowed) {
@@ -264,22 +183,30 @@ export async function PUT(request: Request) {
       },
     );
   }
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
   const body = await readJson(request);
 
   if (body === null) {
-    return jsonMessage("Неверный формат данных.", HTTP_STATUS.badRequest);
+    return NextResponse.json(
+      { message: "Неверный формат данных." },
+      { status: 400 },
+    );
   }
 
   const parsed = reviewWriteSchema.safeParse(body);
 
   if (!parsed.success) {
-    return jsonMessage("Проверьте поля формы.", HTTP_STATUS.badRequest);
+    return NextResponse.json(
+      { message: "Проверьте поля формы." },
+      { status: 400 },
+    );
   }
 
   if (!teachers.some((teacher) => teacher.id === parsed.data.teacherId)) {
-    return jsonMessage("Преподаватель не найден.", HTTP_STATUS.notFound);
+    return NextResponse.json(
+      { message: "Преподаватель не найден." },
+      { status: 404 },
+    );
   }
 
   const session = await auth.api.getSession({
@@ -288,16 +215,16 @@ export async function PUT(request: Request) {
   const hasScore = hasReviewScore(parsed.data);
 
   if (!session) {
-    return jsonMessage(
-      "Войдите, чтобы изменить оценку.",
-      HTTP_STATUS.unauthorized,
+    return NextResponse.json(
+      { message: "Войдите, чтобы изменить оценку." },
+      { status: 401 },
     );
   }
 
   if (hasScore && !session.user.emailVerified) {
-    return jsonMessage(
-      "Подтвердите почту перед изменением оценки.",
-      HTTP_STATUS.forbidden,
+    return NextResponse.json(
+      { message: "Подтвердите почту перед изменением оценки." },
+      { status: 403 },
     );
   }
 
@@ -313,20 +240,16 @@ export async function PUT(request: Request) {
   });
 
   if (!updated) {
-    return jsonMessage("Сначала оставьте оценку.", HTTP_STATUS.notFound);
+    return NextResponse.json(
+      { message: "Сначала оставьте оценку." },
+      { status: 404 },
+    );
   }
 
   return NextResponse.json({ ok: true, updated: true });
 }
 
 export async function DELETE(request: Request) {
-<<<<<<< HEAD
-  const rateLimitResponse = createReviewWriteRateLimitResponse(
-    request,
-    RATE_LIMIT_NAMESPACE.reviewDelete,
-  );
-  if (rateLimitResponse) return rateLimitResponse;
-=======
   const ip = getClientIp(request);
   const rateLimit = checkRateLimit(
     `reviews:delete:${ip}`,
@@ -345,43 +268,35 @@ export async function DELETE(request: Request) {
       },
     );
   }
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
   const { searchParams } = new URL(request.url);
   const teacherId = searchParams.get("teacherId");
-  const reviewId = searchParams.get("reviewId");
+
+  if (!teacherId) {
+    return NextResponse.json(
+      { message: "Не указан преподаватель." },
+      { status: 400 },
+    );
+  }
 
   const session = await auth.api.getSession({
     headers: request.headers,
   });
 
   if (!session) {
-    return jsonMessage(
-      "Войдите, чтобы удалить оценку.",
-      HTTP_STATUS.unauthorized,
+    return NextResponse.json(
+      { message: "Войдите, чтобы удалить оценку." },
+      { status: 401 },
     );
-  }
-
-  const canModerate = isModeratorUser(session.user);
-
-  if (canModerate && reviewId) {
-    const deleted = await deleteTeacherReviewById(reviewId);
-
-    if (!deleted) {
-      return jsonMessage("Оценка не найдена.", HTTP_STATUS.notFound);
-    }
-
-    return NextResponse.json({ ok: true, deleted: true });
-  }
-
-  if (!teacherId) {
-    return jsonMessage("Не указан преподаватель.", HTTP_STATUS.badRequest);
   }
 
   const deleted = await deleteTeacherReview(teacherId, session.user.id);
 
   if (!deleted) {
-    return jsonMessage("Оценка не найдена.", HTTP_STATUS.notFound);
+    return NextResponse.json(
+      { message: "Оценка не найдена." },
+      { status: 404 },
+    );
   }
 
   return NextResponse.json({ ok: true, deleted: true });
@@ -390,7 +305,12 @@ export async function DELETE(request: Request) {
 function getReviewComment(review: ReviewWriteInput) {
   const parts = getReviewParts(review);
 
-  return parts.comment || joinReviewTextParts(parts);
+  return (
+    parts.comment ||
+    [parts.liked, parts.difficult, parts.examProcess, parts.advice]
+      .filter(Boolean)
+      .join(" ")
+  );
 }
 
 function getReviewParts(review: ReviewWriteInput) {
@@ -414,11 +334,18 @@ function getReviewSort(value: string | null): ReviewSortKey {
   return REVIEW_CONFIG.defaultSort;
 }
 
-function createReviewWriteRateLimitResponse(request: Request, namespace: string) {
-  return createRateLimitResponse({
-    request,
-    namespace,
-    limit: API_RATE_LIMITS.reviewWrites,
-    message: "Слишком много запросов. Попробуйте позже.",
-  });
+function clampNumber(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min;
+
+  return Math.min(max, Math.max(min, Math.floor(value)));
+}
+
+async function readJson(request: Request) {
+  return request.json().catch(() => null);
+}
+
+function getClientIp(request: Request) {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? request.headers.get("x-real-ip")
+    ?? "anonymous";
 }

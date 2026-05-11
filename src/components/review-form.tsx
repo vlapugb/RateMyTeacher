@@ -19,15 +19,6 @@ import {
 import { useConfirm } from "@/components/confirm-dialog";
 import { APP_ROUTES } from "@/lib/app-routes";
 import type { MetricKey, Review } from "@/lib/types";
-import {
-  API_ROUTES,
-  APP_ROUTES,
-} from "@/lib/app-routes";
-import {
-  HTTP_STATUS,
-  RATING_SCALE,
-  REVIEW_CONFIG,
-} from "@/lib/app-config";
 import { cn } from "@/lib/utils";
 
 type ReviewFormProps = {
@@ -204,31 +195,6 @@ export function ReviewForm({
   const [authRequired, setAuthRequired] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-<<<<<<< HEAD
-  useEffect(() => {
-    let active = true;
-
-    fetch(API_ROUTES.reviewsForTeacher(teacher.id))
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body: { ownReview?: Review | null } | null) => {
-        if (!active || !body?.ownReview) return;
-
-        setOwnReview(body.ownReview);
-        setScores(body.ownReview.scores ?? {});
-        setDraft({
-          comment: getReviewComment(body.ownReview),
-        });
-        setPublishAnonymously(Boolean(body.ownReview.anonymous));
-      })
-      .catch(() => undefined);
-
-    return () => {
-      active = false;
-    };
-  }, [teacher.id]);
-
-=======
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -267,13 +233,6 @@ export function ReviewForm({
       publishAnonymously: !user || publishAnonymously,
     };
 
-<<<<<<< HEAD
-    const response = await fetch(API_ROUTES.reviews, {
-      method: ownReview ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }).catch(() => null);
-=======
     const response = await (ownReview
       ? updateReview(payload)
       : createReview(payload)
@@ -283,7 +242,6 @@ export function ReviewForm({
         ok: false,
         status: error instanceof ApiRequestError ? error.status : 0,
       }));
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
     setSubmitting(false);
 
@@ -319,15 +277,9 @@ export function ReviewForm({
     setSubmitting(true);
     setStatus(null);
 
-<<<<<<< HEAD
-    const response = await fetch(API_ROUTES.reviewsForTeacher(teacher.id), {
-      method: "DELETE",
-    }).catch(() => null);
-=======
     const deleted = await deleteReview({ teacherId: teacher.id })
       .then(() => true)
       .catch(() => false);
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
     setSubmitting(false);
 
@@ -495,10 +447,7 @@ function RatingInput({
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex gap-1">
-        {Array.from(
-          { length: RATING_SCALE.stars },
-          (_, index) => index + 1,
-        ).map((score) => (
+        {[1, 2, 3, 4, 5].map((score) => (
           <button
             key={score}
             type="button"
@@ -542,7 +491,7 @@ function TextArea({
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        maxLength={REVIEW_CONFIG.textMaxLength}
+        maxLength={500}
         aria-label={ariaLabel}
         placeholder={placeholder}
         className="focus-ring min-h-32 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font700 leading-6 text-foreground placeholder:text-slate-400"
@@ -559,9 +508,9 @@ function getSubmitErrorMessage(
   status: number,
   copy: (typeof reviewFormCopy)[LanguagePreference],
 ) {
-  if (status === HTTP_STATUS.forbidden) return copy.verifyEmail;
-  if (status === HTTP_STATUS.conflict) return copy.alreadyReviewed;
-  if (status === HTTP_STATUS.notFound) return copy.editMissing;
+  if (status === 403) return copy.verifyEmail;
+  if (status === 409) return copy.alreadyReviewed;
+  if (status === 404) return copy.editMissing;
 
   return copy.submitFailed;
 }

@@ -10,12 +10,7 @@ import { useAuthDialog } from "@/components/auth-dialog-context";
 import { authClient } from "@/lib/auth-client";
 import { genericReviewText, formatRelativeTime } from "@/lib/i18n";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
-<<<<<<< HEAD
-import { API_ROUTES } from "@/lib/app-routes";
-import { HTTP_STATUS, REVIEW_IDENTITY } from "@/lib/app-config";
-=======
 import { ApiRequestError, toggleReviewLike } from "@/lib/api-client";
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 import { cn } from "@/lib/utils";
 
 type ReviewCardProps = {
@@ -78,18 +73,18 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
   const author =
     review.anonymousNumber
       ? `${getAnonymousNoun(language)} #${review.anonymousNumber}`
-      : review.author === REVIEW_IDENTITY.anonymousLabel
+      : review.author === "Анонимно"
       ? generic.anonymous
-      : review.author === REVIEW_IDENTITY.studentLabel
+      : review.author === "Студент"
         ? generic.student
         : review.author;
   const course =
-    review.course === REVIEW_IDENTITY.generalCourseLabel
+    review.course === "Общая оценка преподавателя"
       ? generic.generalCourse
       : review.course;
   const year =
-    review.year === REVIEW_IDENTITY.publishedReviewLabel ||
-    review.year === REVIEW_IDENTITY.anonymousPublicationLabel
+    review.year === "Опубликованный отзыв" ||
+    review.year === "Анонимная публикация"
       ? generic.publishedReview
       : review.year;
 
@@ -103,27 +98,6 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
     setLikeSaving(true);
     setLikeStatus(null);
 
-<<<<<<< HEAD
-    const response = await fetch(
-      API_ROUTES.reviewLike(review.id),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ liked: nextLiked }),
-      },
-    ).catch(() => null);
-
-    setLikeSaving(false);
-
-    if (!response?.ok) {
-      setLikeStatus(
-        response?.status === HTTP_STATUS.unauthorized
-          ? copy.authRequired
-          : copy.likeFailed,
-      );
-      return;
-    }
-=======
     const body = await toggleReviewLike(review.id, nextLiked).catch((error) => {
       if (error instanceof ApiRequestError && error.status === 401) {
         setLikeStatus(copy.authRequired);
@@ -136,7 +110,6 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
     setLikeSaving(false);
 
     if (!body) return;
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
 
     setLikeCount(body.likeCount);
     setLikedByMe(body.likedByMe);
@@ -197,7 +170,7 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
                   key={tag}
                   className="rounded-full bg-emerald-50 px-3 py-1 text-xs font800 text-emerald-700"
                 >
-                  {tag === REVIEW_IDENTITY.anonymousTag ? generic.anonymousTag : tag}
+                  {tag === "анонимно" ? generic.anonymousTag : tag}
                 </span>
               ))}
             </div>

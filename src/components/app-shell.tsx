@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Info,
   LogIn,
@@ -32,37 +32,13 @@ import {
   type ThemePreference,
 } from "@/lib/preferences";
 import { cn } from "@/lib/utils";
-import { readStoredCatalogHref } from "@/lib/catalog-navigation";
-import { APP_NAME } from "@/lib/app-config";
-import { APP_ROUTES } from "@/lib/app-routes";
 
 type ShellCopyKey = "teachers" | "favorites" | "account" | "faq" | "about";
 
 const primaryLinks = [
-<<<<<<< HEAD
-  {
-    href: APP_ROUTES.teachers,
-    labelKey: "teachers",
-    icon: UserRound,
-    authOnly: false,
-  },
-  {
-    href: APP_ROUTES.favorites,
-    labelKey: "favorites",
-    icon: Star,
-    authOnly: true,
-  },
-  {
-    href: APP_ROUTES.account,
-    labelKey: "account",
-    icon: UserRound,
-    authOnly: true,
-  },
-=======
   { href: APP_ROUTES.teachers, labelKey: "teachers", icon: UserRound, authOnly: false },
   { href: APP_ROUTES.favorites, labelKey: "favorites", icon: Star, authOnly: true },
   { href: APP_ROUTES.account, labelKey: "account", icon: UserRound, authOnly: true },
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
   { href: APP_ROUTES.faq, labelKey: "faq", icon: HelpCircle, authOnly: false },
   { href: APP_ROUTES.about, labelKey: "about", icon: Info, authOnly: false },
 ] as const;
@@ -143,7 +119,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const copy = shellCopy[language];
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthDialogMode>("signin");
-  const [teachersHref, setTeachersHref] = useState<string>(APP_ROUTES.teachers);
 
   function openAuthDialog(mode: AuthDialogMode = "signin") {
     setAuthMode(mode);
@@ -151,21 +126,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
   const visibleLinks = primaryLinks.filter((link) => !link.authOnly || user);
 
-  useEffect(() => {
-    queueMicrotask(() => setTeachersHref(readStoredCatalogHref()));
-  }, [pathname]);
-
   return (
     <AuthDialogProvider value={{ openAuthDialog }}>
       <ConfirmProvider>
       <div className="min-h-screen p-0 sm:p-3 md:p-5">
         <div className="mx-auto flex min-h-screen max-w-[1600px] gap-3 sm:min-h-[calc(100vh-24px)] md:min-h-[calc(100vh-40px)]">
           <aside className="hidden w-72 shrink-0 rounded-lg border border-line bg-panel p-7 shadow-sm lg:flex lg:flex-col">
-<<<<<<< HEAD
-            <Link href={teachersHref} className="text-3xl font900 tracking-tight">
-=======
             <Link href={APP_ROUTES.teachers} className="text-3xl font900 tracking-tight">
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
               {APP_NAME}
             </Link>
 
@@ -176,9 +143,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   link={link}
                   pathname={pathname}
                   label={copy.nav[link.labelKey]}
-                  hrefOverride={
-                    link.labelKey === "teachers" ? teachersHref : undefined
-                  }
                 />
               ))}
             </nav>
@@ -194,7 +158,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
 
             <p className="mt-9 text-xs font700 leading-6 text-slate-400">
-              {APP_NAME} © 2026
+              StudRadar © 2026
               <br />
               {copy.footer}
             </p>
@@ -203,13 +167,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <main className="min-w-0 flex-1 overflow-hidden bg-panel shadow-sm sm:rounded-lg sm:border sm:border-line">
             <header className="sticky top-0 z-20 flex min-h-14 items-center justify-between gap-2 border-b border-line bg-white/85 px-3 py-2 backdrop-blur-md sm:min-h-20 sm:gap-4 sm:px-5 sm:py-4 md:px-8">
               <div className="min-w-0 shrink-0">
-<<<<<<< HEAD
-                <Link href={teachersHref} className="text-xl font900 lg:hidden sm:text-2xl">
-=======
                 <Link href={APP_ROUTES.teachers} className="text-xl font900 lg:hidden sm:text-2xl">
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
                   <span className="sm:hidden">SR</span>
-                  <span className="hidden sm:inline">{APP_NAME}</span>
+                  <span className="hidden sm:inline">StudRadar</span>
                 </Link>
                 <p className="hidden text-sm font900 text-slate-600 md:block">
                   {copy.header}
@@ -266,11 +226,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       onClick={async () => {
                         await authClient.signOut();
                         router.refresh();
-<<<<<<< HEAD
-                        router.push(teachersHref);
-=======
                         router.push(APP_ROUTES.teachers);
->>>>>>> 26926d9 (refactor: delete students from teachers list and refactor code)
                       }}
                     >
                       <LogOut className="h-5 w-5" />
@@ -300,9 +256,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   return (
                     <Link
                       key={link.href}
-                      href={
-                        link.labelKey === "teachers" ? teachersHref : link.href
-                      }
+                      href={link.href}
                       className={cn(
                         "flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font800 text-muted sm:gap-2 sm:px-3 sm:text-sm",
                         active && "bg-primary-soft text-primary",
@@ -333,16 +287,15 @@ type NavLinkProps = {
   link: (typeof primaryLinks)[number];
   pathname: string;
   label: string;
-  hrefOverride?: string;
 };
 
-function NavLink({ link, pathname, label, hrefOverride }: NavLinkProps) {
+function NavLink({ link, pathname, label }: NavLinkProps) {
   const Icon = link.icon;
   const active = pathname.startsWith(link.href);
 
   return (
     <Link
-      href={hrefOverride ?? link.href}
+      href={link.href}
       className={cn(
         "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font900 text-slate-600 transition-all duration-200 hover:bg-primary-soft hover:text-primary hover:translate-x-1",
         active && "bg-primary-soft text-primary",
