@@ -60,14 +60,14 @@ export function CatalogControls({
           {allLabel}
         </button>
         <div className="flex items-center gap-2 sm:ml-auto">
-          <label className="flex flex-1 items-center justify-between gap-2 text-sm font900 text-slate-600 sm:flex-none">
+          <label className="flex items-center gap-2 text-sm font900 text-slate-600 sm:flex-none">
             {sortingLabel}
             <select
               value={sortKey}
               onChange={(event) =>
                 onSortChange(event.target.value as CatalogSortKey)
               }
-              className="focus-ring h-10 min-w-0 flex-1 rounded-lg border border-line bg-white px-3 text-sm font900 text-slate-700 sm:flex-none"
+              className="focus-ring h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm font900 text-slate-700 sm:flex-none"
             >
               <option value="rating">{byRatingLabel}</option>
               <option value="commentCount">{byCommentsLabel}</option>
