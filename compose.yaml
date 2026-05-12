@@ -26,6 +26,9 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM:-StudRadar <noreply@localhost>}
+      MODERATION_WEBHOOK_SECRET: ${MODERATION_WEBHOOK_SECRET}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_ADMIN_ID: ${TELEGRAM_ADMIN_ID}
     depends_on:
       - db
     expose:
