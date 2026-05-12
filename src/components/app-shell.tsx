@@ -20,9 +20,10 @@ import {
   type AuthDialogMode,
 } from "@/components/auth-dialog-context";
 import { ConfirmProvider } from "@/components/confirm-dialog";
+import { CookieBanner } from "@/components/cookie-banner";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
-import { APP_NAME } from "@/lib/app-config";
+import { APP_NAME, LEGAL_CONFIG } from "@/lib/app-config";
 import { APP_ROUTES } from "@/lib/app-routes";
 import {
   languageOptions,
@@ -157,11 +158,63 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </p>
             </div>
 
-            <p className="mt-9 text-xs font700 leading-6 text-slate-400">
-              StudRadar © 2026
-              <br />
-              {copy.footer}
-            </p>
+            <div className="mt-9 space-y-4">
+              <nav className="flex flex-wrap gap-1.5">
+                <a
+                  href={APP_ROUTES.legalTerms}
+                  className="text-xs font700 text-slate-400 hover:text-primary"
+                >
+                  Соглашение
+                </a>
+                <span className="text-slate-300">·</span>
+                <a
+                  href={APP_ROUTES.legalPrivacy}
+                  className="text-xs font700 text-slate-400 hover:text-primary"
+                >
+                  Политика ПД
+                </a>
+                <span className="text-slate-300">·</span>
+                <a
+                  href={APP_ROUTES.legalCookies}
+                  className="text-xs font700 text-slate-400 hover:text-primary"
+                >
+                  Cookie
+                </a>
+                <span className="text-slate-300">·</span>
+                <a
+                  href={APP_ROUTES.legalReviewRules}
+                  className="text-xs font700 text-slate-400 hover:text-primary"
+                >
+                  Правила
+                </a>
+                <span className="text-slate-300">·</span>
+                <a
+                  href={APP_ROUTES.legalComplaint}
+                  className="text-xs font700 text-slate-400 hover:text-primary"
+                >
+                  Жалоба
+                </a>
+                <span className="text-slate-300">·</span>
+                <a
+                  href={APP_ROUTES.legalContacts}
+                  className="text-xs font700 text-slate-400 hover:text-primary"
+                >
+                  Контакты
+                </a>
+              </nav>
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-xs font700 leading-5 text-amber-800">
+                  {LEGAL_CONFIG.disclaimerText}
+                </p>
+              </div>
+
+              <p className="text-xs font700 leading-6 text-slate-400">
+                StudRadar © 2026
+                <br />
+                {copy.footer}
+              </p>
+            </div>
           </aside>
 
           <main className="min-w-0 flex-1 overflow-hidden bg-panel shadow-sm sm:rounded-lg sm:border sm:border-line">
@@ -277,6 +330,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {authOpen && (
           <AuthDialog initialMode={authMode} onOpenChange={setAuthOpen} />
         )}
+
+        <CookieBanner />
       </div>
     </ConfirmProvider>
     </AuthDialogProvider>

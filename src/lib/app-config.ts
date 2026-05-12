@@ -13,7 +13,17 @@ export const REVIEW_CONFIG = {
   textMaxLength: 500,
   defaultSort: "newest",
   approvedStatus: "approved",
+  pendingStatus: "pending",
+  rejectedStatus: "rejected",
+  needsEditStatus: "needs_edit",
+  disputedStatus: "disputed",
   statsCacheMs: 10_000,
+} as const;
+
+export const MODERATION_CONFIG = {
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN?.trim() || "",
+  telegramAdminId: process.env.TELEGRAM_ADMIN_ID?.trim() || "",
+  webhookSecret: process.env.MODERATION_WEBHOOK_SECRET?.trim() || "",
 } as const;
 
 export const API_RATE_LIMITS = {
@@ -51,4 +61,15 @@ export const CONTACT_CONFIG = {
 
 export const ANALYTICS_CONFIG = {
   yandexMetrikaId: process.env.NEXT_PUBLIC_YANDEX_METRIKA_ID?.trim() || "",
+} as const;
+
+export const LEGAL_CONFIG = {
+  documentVersion: "1.0",
+  adminName: "Администратор StudRadar",
+  adminEmail:
+    process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim() ||
+    "admin@ratespbuteacher.ru",
+  orgAddress: "199034, Санкт-Петербург, Университетская наб., д. 7–9",
+  disclaimerText:
+    "Сайт не является официальным ресурсом Санкт-Петербургского государственного университета, не аффилирован с ним и не действует от его имени.",
 } as const;

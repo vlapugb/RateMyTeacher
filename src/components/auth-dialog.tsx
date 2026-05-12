@@ -59,6 +59,10 @@ const authCopy: Record<
     defaultName: string;
     namePlaceholder: string;
     passwordPlaceholder: string;
+    agreeTerms: string;
+    agreePersonalData: string;
+    agreeAge: string;
+    consentRequired: string;
   }
 > = {
   ru: {
@@ -113,6 +117,14 @@ const authCopy: Record<
     defaultName: "Студент",
     namePlaceholder: "Как вас показывать в личном кабинете",
     passwordPlaceholder: "Минимум 8 символов",
+    agreeTerms:
+      "Я принимаю условия Пользовательского соглашения",
+    agreePersonalData:
+      "Я даю согласие на обработку персональных данных в соответствии с Политикой обработки ПД",
+    agreeAge:
+      "Я подтверждаю, что мне исполнилось 18 лет, либо у меня есть согласие законного представителя",
+    consentRequired:
+      "Необходимо принять все обязательные условия.",
   },
   en: {
     title: {
@@ -165,6 +177,14 @@ const authCopy: Record<
     defaultName: "Student",
     namePlaceholder: "How to show your name in the account",
     passwordPlaceholder: "At least 8 characters",
+    agreeTerms:
+      "I accept the Terms of Service",
+    agreePersonalData:
+      "I consent to the processing of my personal data in accordance with the Privacy Policy",
+    agreeAge:
+      "I confirm that I am 18 years or older, or have consent of a legal representative",
+    consentRequired:
+      "All mandatory consents are required.",
   },
   zh: {
     title: {
@@ -213,6 +233,10 @@ const authCopy: Record<
     defaultName: "学生",
     namePlaceholder: "在账户中显示的名称",
     passwordPlaceholder: "至少 8 个字符",
+    agreeTerms: "我接受用户协议条款",
+    agreePersonalData: "我同意按照隐私政策处理我的个人数据",
+    agreeAge: "我确认我已年满 18 岁，或已获得法定代表人的同意",
+    consentRequired: "必须接受所有强制性条件。",
   },
 };
 
@@ -227,6 +251,9 @@ export function AuthDialog({
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreePersonalData, setAgreePersonalData] = useState(false);
+  const [agreeAge, setAgreeAge] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -282,6 +309,11 @@ export function AuthDialog({
 
       if (password.length < STUDENT_IDENTITY.passwordMinLength) {
         setStatus(copy.passwordFormat);
+        return;
+      }
+
+      if (!agreeTerms || !agreePersonalData || !agreeAge) {
+        setStatus(copy.consentRequired);
         return;
       }
     }
@@ -346,6 +378,17 @@ export function AuthDialog({
       router.push(APP_ROUTES.account);
       return;
     }
+
+    fetch(API_ROUTES.consent, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ consentType: "terms_of_service" }),
+    }).catch(() => {});
+    fetch(API_ROUTES.consent, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ consentType: "personal_data" }),
+    }).catch(() => {});
 
     setStatus(copy.accountCreated);
   }
@@ -471,6 +514,58 @@ export function AuthDialog({
                 </button>
               </div>
             </label>
+          )}
+
+          {mode === "signup" && (
+            <div className="space-y-2 rounded-lg border border-line bg-slate-50 p-3">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreeTerms}
+                  onChange={(e) => setAgreeTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-line"
+                />
+                <span className="text-xs font700 leading-5 text-slate-600">
+                  {copy.agreeTerms}{" "}
+                  <a
+                    href="/legal/terms"
+                    target="_blank"
+                    className="text-primary underline underline-offset-4 hover:no-underline"
+                  >
+                    {copy.signUpTab === "Регистрация" ? "Подробнее" : "Details"}
+                  </a>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreePersonalData}
+                  onChange={(e) => setAgreePersonalData(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-line"
+                />
+                <span className="text-xs font700 leading-5 text-slate-600">
+                  {copy.agreePersonalData}{" "}
+                  <a
+                    href="/legal/personal-data-consent"
+                    target="_blank"
+                    className="text-primary underline underline-offset-4 hover:no-underline"
+                  >
+                    {copy.signUpTab === "Регистрация" ? "Подробнее" : "Details"}
+                  </a>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreeAge}
+                  onChange={(e) => setAgreeAge(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-line"
+                />
+                <span className="text-xs font700 leading-5 text-slate-600">
+                  {copy.agreeAge}
+                </span>
+              </label>
+            </div>
           )}
 
           {mode === "signin" && (

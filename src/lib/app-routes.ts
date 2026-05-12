@@ -15,6 +15,14 @@ export const APP_ROUTES = {
     `/teachers/${encodeURIComponent(teacherId)}?tab=courses`,
   teacherComments: (teacherId: string) =>
     `/teachers/${encodeURIComponent(teacherId)}?tab=comments`,
+  legal: "/legal",
+  legalTerms: "/legal/terms",
+  legalPrivacy: "/legal/privacy",
+  legalPersonalDataConsent: "/legal/personal-data-consent",
+  legalCookies: "/legal/cookies",
+  legalReviewRules: "/legal/review-rules",
+  legalComplaint: "/legal/complaint",
+  legalContacts: "/legal/contacts",
 } as const;
 
 export const TEACHER_QUERY_PARAM = {
@@ -45,4 +53,8 @@ export const API_ROUTES = {
   authResetPassword: "/api/auth/reset-password",
   authChangePassword: "/api/auth/change-password",
   authSendVerificationEmail: "/api/auth/send-verification-email",
+  consent: "/api/consent",
+  complaints: "/api/complaints",
+  moderation: "/api/moderation",
+  moderationWebhook: "/api/moderation/webhook",
 } as const;
