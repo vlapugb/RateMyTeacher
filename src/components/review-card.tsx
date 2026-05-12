@@ -116,7 +116,10 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
   }
 
   return (
-    <article className="interactive-card rounded-lg border border-line bg-white p-3 hover:border-primary/30 hover:shadow-sm sm:p-4">
+    <article
+      id={`review-${review.id}`}
+      className="interactive-card rounded-lg border border-line bg-white p-3 hover:border-primary/30 hover:shadow-sm sm:p-4"
+    >
       <div className="flex items-start gap-2.5 sm:gap-3">
         <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-sm font900 text-white shadow-sm sm:h-10 sm:w-10">
           {author.trim().charAt(0).toUpperCase() || review.initial}

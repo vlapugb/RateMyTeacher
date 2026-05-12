@@ -33,6 +33,7 @@ type TeacherProfileProps = {
   baseTeacher: Teacher;
   activeTab: TeacherTab;
   initialReviewsPage: ReviewsPageResponse;
+  targetReviewId?: string;
 };
 
 const COMMENTS_PAGE_SIZE = REVIEW_CONFIG.defaultPageSize;
@@ -157,6 +158,7 @@ export function TeacherProfile({
   baseTeacher,
   activeTab,
   initialReviewsPage,
+  targetReviewId,
 }: TeacherProfileProps) {
   const { language } = usePreferences();
   const router = useRouter();
@@ -233,6 +235,18 @@ export function TeacherProfile({
     }))
     .sort((left, right) => right.value - left.value)
     .slice(0, 3);
+
+  useEffect(() => {
+    if (!targetReviewId || !teacherReviews.length) return;
+    const el = document.getElementById(`review-${targetReviewId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-primary", "ring-offset-2");
+    const timeout = window.setTimeout(() => {
+      el.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+    }, 3000);
+    return () => window.clearTimeout(timeout);
+  }, [targetReviewId, teacherReviews]);
 
   async function handleShare() {
     const url = `${window.location.origin}${APP_ROUTES.teacher(teacher.id)}`;

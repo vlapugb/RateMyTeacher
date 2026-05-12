@@ -6,7 +6,6 @@ import { Star, X, MessageSquareText } from "lucide-react";
 import { usePreferences } from "@/lib/preferences";
 import { formatRelativeTime } from "@/lib/i18n";
 import { APP_ROUTES } from "@/lib/app-routes";
-import { cn } from "@/lib/utils";
 import type { Review, Teacher } from "@/lib/types";
 
 type RecentKind = "reviews" | "comments";
@@ -63,16 +62,12 @@ const copy = {
 export type RecentActivityExpansionProps = {
   kind: RecentKind;
   teachers: Teacher[];
-  align?: "left" | "right";
-  variant?: "popover" | "inline";
   onClose: () => void;
 };
 
 export function RecentActivityExpansion({
   kind,
   teachers,
-  align = "left",
-  variant = "popover",
   onClose,
 }: RecentActivityExpansionProps) {
   const { language } = usePreferences();
@@ -114,19 +109,18 @@ export function RecentActivityExpansion({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Element;
       if (
         panelRef.current &&
-        !panelRef.current.contains(e.target as Node)
+        !panelRef.current.contains(target) &&
+        !target.closest('[aria-expanded]')
       ) {
         onClose();
       }
     }
-    const timer = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-    }, 0);
+    document.addEventListener("mousedown", handleClickOutside, true);
     return () => {
-      clearTimeout(timer);
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside, true);
     };
   }, [onClose]);
 
@@ -135,26 +129,16 @@ export function RecentActivityExpansion({
   const closeLabel =
     kind === "reviews" ? t.closeReviews : t.closeComments;
 
-  const isPopover = variant === "popover";
-
   return (
     <div
       ref={panelRef}
       id="recent-activity-panel"
       role="region"
       aria-label={title}
-      className={cn(
-        isPopover
-          ? "recent-popover w-[min(420px,calc(100vw-2rem))]"
-          : "recent-inline mt-2.5 w-full sm:hidden",
-        isPopover && align === "right" && "recent-popover--right",
-      )}
+      className="w-full"
     >
       <div
-        className={cn(
-          isPopover && "animate-scale-in",
-          "rounded-2xl border border-line bg-white px-4 py-3 shadow-lg sm:shadow-xl",
-        )}
+        className="recent-inline-card rounded-2xl border border-line bg-white px-4 py-3 shadow-sm"
         key={kind}
       >
         <div className="mb-3 flex items-start justify-between gap-2">
@@ -193,7 +177,7 @@ export function RecentActivityExpansion({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="recent-scroll-list grid grid-cols-1 gap-2 sm:grid-cols-2 sm:max-h-none sm:overflow-visible">
             {items.map((review) => {
               const teacher = teacherMap.get(review.teacherId);
               const teacherName =
@@ -210,8 +194,8 @@ export function RecentActivityExpansion({
               return (
                 <Link
                   key={review.id}
-                  href={APP_ROUTES.teacher(review.teacherId)}
-                  className="block rounded-xl border border-line bg-slate-50/60 px-3 py-2 transition hover:border-primary/25 hover:bg-slate-50"
+                  href={APP_ROUTES.teacherReview(review.teacherId, review.id)}
+                  className="block rounded-xl border border-line bg-slate-50/60 px-3 py-2.5 transition hover:border-primary/25 hover:bg-slate-50"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className="truncate text-sm font900 text-foreground">
@@ -222,7 +206,7 @@ export function RecentActivityExpansion({
                     </span>
                   </div>
                   {showRating && (
-                    <div className="mt-0.5 flex items-center gap-1">
+                    <div className="mt-1 flex items-center gap-1">
                       <Star className="h-3.5 w-3.5 fill-warning text-warning" />
                       <span className="text-xs font800 text-slate-600">
                         {review.rating}
@@ -230,11 +214,11 @@ export function RecentActivityExpansion({
                     </div>
                   )}
                   {hasText ? (
-                    <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-slate-600">
+                    <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-slate-600">
                       {review.body}
                     </p>
                   ) : (
-                    <p className="mt-0.5 text-xs italic text-slate-400">
+                    <p className="mt-1 text-xs italic text-slate-400">
                       {t.noComment}
                     </p>
                   )}

@@ -8,7 +8,7 @@ import { getInitialTeacherProfile } from "@/lib/server-teacher-data";
 
 type TeacherPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; review?: string }>;
 };
 
 export default async function TeacherPage({
@@ -16,7 +16,7 @@ export default async function TeacherPage({
   searchParams,
 }: TeacherPageProps) {
   const { id } = await params;
-  const { tab } = await searchParams;
+  const { tab, review } = await searchParams;
   const profile = await getInitialTeacherProfile(id, await headers());
 
   if (!profile) notFound();
@@ -29,6 +29,7 @@ export default async function TeacherPage({
       baseTeacher={profile.teacher}
       activeTab={activeTab}
       initialReviewsPage={profile.reviewsPage}
+      targetReviewId={typeof review === "string" ? review : undefined}
     />
   );
 }
