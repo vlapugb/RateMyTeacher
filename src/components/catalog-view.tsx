@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   MessageSquareText,
   Star,
   UsersRound,
-  X,
 } from "lucide-react";
 import { metrics } from "@/lib/teacher-catalog";
 import { CatalogControls } from "@/components/catalog/catalog-controls";
@@ -19,12 +17,12 @@ import {
 import { CatalogSummary } from "@/components/catalog/catalog-summary";
 import type { CatalogSortKey } from "@/components/catalog/catalog-types";
 import { TeacherGrid } from "@/components/catalog/teacher-grid";
-import type { Review, Teacher } from "@/lib/types";
+import type { Teacher } from "@/lib/types";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
-import { formatRelativeTime, localizeMetrics } from "@/lib/i18n";
-import { APP_ROUTES } from "@/lib/app-routes";
+import { localizeMetrics } from "@/lib/i18n";
 import { STORAGE_KEYS } from "@/lib/app-config";
 import { useSwipeNavigation } from "@/lib/swipe-navigation";
+import { RecentActivityDrawer } from "@/components/catalog/recent-activity-drawer";
 
 const PAGE_SIZE = 6;
 const STATE_STORAGE_KEY = "studradar:catalog-state";
@@ -76,12 +74,6 @@ const catalogCopy: Record<
     of: string;
     previousPage: string;
     nextPage: string;
-    recentTitle: string;
-    recentLoading: string;
-    recentEmpty: string;
-    recentClose: string;
-    ratingOnly: string;
-    unknownTeacher: string;
   }
 > = {
   ru: {
@@ -105,12 +97,6 @@ const catalogCopy: Record<
     of: "из",
     previousPage: "Предыдущая страница",
     nextPage: "Следующая страница",
-    recentTitle: "Последние {what}",
-    recentLoading: "Загружаем...",
-    recentEmpty: "Пока ничего нет",
-    recentClose: "Закрыть",
-    ratingOnly: "Оценка без комментария",
-    unknownTeacher: "Преподаватель",
   },
   en: {
     title: "Find a teacher",
@@ -133,12 +119,6 @@ const catalogCopy: Record<
     of: "of",
     previousPage: "Previous page",
     nextPage: "Next page",
-    recentTitle: "Latest {what}",
-    recentLoading: "Loading...",
-    recentEmpty: "Nothing here yet",
-    recentClose: "Close",
-    ratingOnly: "Rating without a comment",
-    unknownTeacher: "Teacher",
   },
   zh: {
     title: "查找教师",
@@ -160,20 +140,12 @@ const catalogCopy: Record<
     of: "共",
     previousPage: "上一页",
     nextPage: "下一页",
-    recentTitle: "最新{what}",
-    recentLoading: "加载中...",
-    recentEmpty: "暂无内容",
-    recentClose: "关闭",
-    ratingOnly: "无评论评分",
-    unknownTeacher: "教师",
   },
 };
 
 type CatalogViewProps = {
   initialTeachers: Teacher[];
 };
-
-type RecentKind = "reviews" | "comments";
 
 export function CatalogView({ initialTeachers }: CatalogViewProps) {
   const { language } = usePreferences();
@@ -197,8 +169,7 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
   });
   const [catalogTeachers, setCatalogTeachers] =
     useState<Teacher[]>(initialTeachers);
-  const [recentKind, setRecentKind] = useState<RecentKind | null>(null);
-  const [recentItems, setRecentItems] = useState<Review[] | null>(null);
+  const [recentKind, setRecentKind] = useState<"reviews" | "comments" | null>(null);
 
   useEffect(() => {
     if (!showIntro) return;
@@ -212,23 +183,6 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
   useEffect(() => {
     saveState({ query, sortKey, sortDirection, page: currentPage });
   }, [query, sortKey, sortDirection, currentPage]);
-
-  useEffect(() => {
-    if (!recentKind) return;
-    const controller = new AbortController();
-    fetch(`/api/reviews/recent?kind=${recentKind}&limit=10`, {
-      signal: controller.signal,
-    })
-      .then((res) => res.json())
-      .then((data) => setRecentItems(data.reviews ?? []))
-      .catch(() => setRecentItems([]));
-    return () => controller.abort();
-  }, [recentKind]);
-
-  const teacherMap = useMemo(
-    () => new Map(catalogTeachers.map((t) => [t.id, t])),
-    [catalogTeachers],
-  );
 
   const totalReviews = useMemo(
     () => catalogTeachers.reduce((sum, t) => sum + t.reviewCount, 0),
@@ -277,21 +231,6 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
     setShowIntro(false);
   }
 
-  function openRecent(kind: RecentKind) {
-    setRecentKind(kind);
-    setRecentItems(null);
-  }
-
-  function closeRecent() {
-    setRecentKind(null);
-    setRecentItems(null);
-  }
-
-  const recentWhat =
-    recentKind === "reviews"
-      ? copy.reviews
-      : copy.comments;
-
   return (
     <div className="page-soft-enter px-3 pb-6 sm:px-5 sm:pb-8 md:px-8">
       <section className="pt-4 sm:pt-6">
@@ -311,13 +250,13 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
               Icon: Star,
               value: totalReviews,
               label: copy.reviews,
-              onClick: () => openRecent("reviews"),
+              onClick: () => setRecentKind("reviews"),
             },
             {
               Icon: MessageSquareText,
               value: totalComments,
               label: copy.comments,
-              onClick: () => openRecent("comments"),
+              onClick: () => setRecentKind("comments"),
             },
           ]}
         />
@@ -387,79 +326,13 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
         onPageChange={setCurrentPage}
       />
 
-      {recentKind && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-2 sm:items-center sm:p-4"
-          onClick={closeRecent}
-        >
-          <div
-            className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-xl bg-white shadow-xl sm:rounded-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-line px-4 py-3">
-              <h2 className="text-lg font900">
-                {copy.recentTitle.replace("{what}", recentWhat)}
-              </h2>
-              <button
-                type="button"
-                onClick={closeRecent}
-                className="focus-ring rounded-lg p-1.5 text-slate-400 hover:text-slate-600"
-                aria-label={copy.recentClose}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="overflow-y-auto p-4">
-              {recentItems === null ? (
-                <p className="py-8 text-center text-sm font700 text-muted">
-                  {copy.recentLoading}
-                </p>
-              ) : recentItems.length === 0 ? (
-                <p className="py-8 text-center text-sm font800 text-muted">
-                  {copy.recentEmpty}
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {recentItems.map((review) => {
-                    const teacher = teacherMap.get(review.teacherId);
-                    const teacherName =
-                      teacher?.fullName ?? copy.unknownTeacher;
-                    const timeAgo = formatRelativeTime(
-                      review.createdAt,
-                      language,
-                    );
-                    const snippet =
-                      review.body.length > 100
-                        ? review.body.slice(0, 100) + "…"
-                        : review.body || copy.ratingOnly;
-
-                    return (
-                      <Link
-                        key={review.id}
-                        href={APP_ROUTES.teacher(review.teacherId)}
-                        onClick={closeRecent}
-                        className="block rounded-lg border border-line bg-slate-50 p-3 transition hover:border-primary/30 hover:bg-white"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="truncate text-sm font900 text-foreground">
-                            {teacherName}
-                          </span>
-                          <span className="shrink-0 text-xs font700 text-muted">
-                            {timeAgo}
-                          </span>
-                        </div>
-                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">
-                          {snippet}
-                        </p>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <RecentActivityDrawer
+        open={recentKind !== null}
+        kind={recentKind ?? "comments"}
+        teachers={catalogTeachers}
+        onClose={() => setRecentKind(null)}
+        onKindChange={setRecentKind}
+      />
     </div>
   );
 }
