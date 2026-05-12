@@ -68,8 +68,7 @@ export const LEGAL_CONFIG = {
   adminName: "Администратор StudRadar",
   adminEmail:
     process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim() ||
-    "admin@ratespbuteacher.ru",
-  orgAddress: "199034, Санкт-Петербург, Университетская наб., д. 7–9",
+    "ratespbuteacher.no.reply@gmail.com",
   disclaimerText:
     "Сайт не является официальным ресурсом Санкт-Петербургского государственного университета, не аффилирован с ним и не действует от его имени.",
 } as const;

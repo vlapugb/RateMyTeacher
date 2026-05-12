@@ -34,12 +34,6 @@ export default function ContactsPage() {
               </a>
             </td>
           </tr>
-          <tr className="border-b border-line">
-            <td className="py-2 pr-4 font800 text-slate-600">
-              Юридический адрес
-            </td>
-            <td className="py-2">{LEGAL_CONFIG.orgAddress}</td>
-          </tr>
         </tbody>
       </table>
 
