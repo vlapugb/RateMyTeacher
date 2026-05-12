@@ -16,6 +16,7 @@ import {
   getPublicReviewsPage,
   updateTeacherReview,
 } from "@/lib/teacher-store";
+import { filterDangerousContent } from "@/lib/content-filter";
 
 export async function GET(request: Request) {
   const session = await auth.api.getSession({
@@ -124,6 +125,16 @@ export async function POST(request: Request) {
       );
     }
 
+    const filterResult = filterDangerousContent(comment);
+    if (!filterResult.passed) {
+      return NextResponse.json(
+        {
+          message: `Отзыв не может быть отправлен. Найдена недопустимая информация: ${filterResult.flags.join(", ")}. Исправьте текст.`,
+        },
+        { status: 400 },
+      );
+    }
+
     await createTeacherReview({
       teacherId: parsed.data.teacherId,
       userId: null,
@@ -134,7 +145,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { ok: true, published: true, anonymous: true },
+      { ok: true, published: false, pending: true, anonymous: true },
       { status: 201 },
     );
   }
@@ -155,6 +166,16 @@ export async function POST(request: Request) {
     );
   }
 
+  const filterResult = filterDangerousContent(comment);
+  if (!filterResult.passed) {
+    return NextResponse.json(
+      {
+        message: `Отзыв не может быть отправлен. Найдена недопустимая информация: ${filterResult.flags.join(", ")}. Исправьте текст.`,
+      },
+      { status: 400 },
+    );
+  }
+
   await createTeacherReview({
     teacherId: parsed.data.teacherId,
     userId: session.user.id,
@@ -164,7 +185,7 @@ export async function POST(request: Request) {
     anonymous: parsed.data.publishAnonymously || parsed.data.anonymous,
   });
 
-  return NextResponse.json({ ok: true, published: true }, { status: 201 });
+  return NextResponse.json({ ok: true, published: false, pending: true }, { status: 201 });
 }
 
 export async function PUT(request: Request) {
@@ -229,6 +250,16 @@ export async function PUT(request: Request) {
   }
 
   const parts = getReviewParts(parsed.data);
+  const comment = getReviewComment(parsed.data);
+  const filterResult = filterDangerousContent(comment);
+  if (!filterResult.passed) {
+    return NextResponse.json(
+      {
+        message: `Отзыв не может быть обновлён. Найдена недопустимая информация: ${filterResult.flags.join(", ")}. Исправьте текст.`,
+      },
+      { status: 400 },
+    );
+  }
 
   const updated = await updateTeacherReview({
     teacherId: parsed.data.teacherId,

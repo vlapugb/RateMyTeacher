@@ -56,6 +56,9 @@ const reviewFormCopy: Record<
     deleteFailed: string;
     publishedAnonymous: string;
     published: string;
+    pending: string;
+    contentPledge: string;
+    contentPledgeRequired: string;
     verifyEmail: string;
     alreadyReviewed: string;
     editMissing: string;
@@ -79,7 +82,7 @@ const reviewFormCopy: Record<
     delete: "Удалить оценку",
     saving: "Сохраняем...",
     saveChanges: "Сохранить изменения",
-    publish: "Опубликовать",
+    publish: "Отправить на модерацию",
     signIn: "Войдите",
     signInSuffix:
       "чтобы поставить оценку. Комментарий можно оставить анонимно без входа.",
@@ -89,6 +92,11 @@ const reviewFormCopy: Record<
     deleteFailed: "Не удалось удалить оценку.",
     publishedAnonymous: "Оценка опубликована анонимно.",
     published: "Оценка отправлена.",
+    pending: "Отзыв отправлен на модерацию и появится на сайте после проверки.",
+    contentPledge:
+      "Я подтверждаю, что отзыв основан на моем личном учебном опыте, не содержит заведомо ложных сведений, оскорблений, персональных данных третьих лиц, сведений о здоровье, личной жизни, адресах, телефонах, политических взглядах, национальности, религии и другой чувствительной информации.",
+    contentPledgeRequired:
+      "Перед отправкой подтвердите, что отзыв соответствует Правилам публикации.",
     verifyEmail: "Подтвердите почту перед публикацией оценки.",
     alreadyReviewed:
       "Вы уже оценили этого преподавателя. Измените существующий отзыв.",
@@ -112,7 +120,7 @@ const reviewFormCopy: Record<
     delete: "Delete review",
     saving: "Saving...",
     saveChanges: "Save changes",
-    publish: "Publish",
+    publish: "Send for moderation",
     signIn: "Sign in",
     signInSuffix:
       "to submit a rating. You can leave an anonymous comment without signing in.",
@@ -122,6 +130,11 @@ const reviewFormCopy: Record<
     deleteFailed: "Could not delete the review.",
     publishedAnonymous: "Review published anonymously.",
     published: "Review submitted.",
+    pending: "Review sent for moderation and will appear after verification.",
+    contentPledge:
+      "I confirm this review is based on my personal academic experience, contains no false information, insults, third-party personal data, health information, private life details, addresses, phone numbers, political views, nationality, religion, or other sensitive information.",
+    contentPledgeRequired:
+      "Please confirm that your review complies with the Review Rules before submitting.",
     verifyEmail: "Verify your email before publishing a review.",
     alreadyReviewed:
       "You have already reviewed this teacher. Edit the existing review.",
@@ -143,7 +156,7 @@ const reviewFormCopy: Record<
     delete: "删除评价",
     saving: "保存中...",
     saveChanges: "保存修改",
-    publish: "发布",
+    publish: "提交审核",
     signIn: "登录",
     signInSuffix: "后即可评分。未登录也可以匿名发表评论。",
     emptyForm: "请至少选择一个评分或填写评论。",
@@ -152,6 +165,10 @@ const reviewFormCopy: Record<
     deleteFailed: "无法删除评价。",
     publishedAnonymous: "评价已匿名发布。",
     published: "评价已提交。",
+    pending: "评价已提交审核，审核通过后将显示。",
+    contentPledge:
+      "我确认此评价基于我的个人学术经验，不含虚假信息、侮辱、第三方个人数据、健康信息、私人生活细节、地址、电话、政治观点、民族、宗教或其他敏感信息。",
+    contentPledgeRequired: "提交前请确认您的评价符合评价规则。",
     verifyEmail: "发布评价前请先验证邮箱。",
     alreadyReviewed: "你已经评价过这位教师。请编辑现有评价。",
     editMissing: "请先留下评价。",
@@ -194,6 +211,7 @@ export function ReviewForm({
   const [status, setStatus] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [contentPledgeAccepted, setContentPledgeAccepted] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -218,6 +236,12 @@ export function ReviewForm({
       setSubmitting(false);
       setAuthRequired(true);
       setStatus(copy.signInSuffix);
+      return;
+    }
+
+    if (!contentPledgeAccepted) {
+      setSubmitting(false);
+      setStatus(copy.contentPledgeRequired);
       return;
     }
 
@@ -255,7 +279,7 @@ export function ReviewForm({
       return;
     }
 
-    setStatus(publishAnonymously ? copy.publishedAnonymous : copy.published);
+    setStatus(copy.pending);
     router.push(
       hasComment
         ? APP_ROUTES.teacherComments(teacher.id)
@@ -370,6 +394,31 @@ export function ReviewForm({
             setDraft((current) => ({ ...current, comment: value }))
           }
         />
+      </section>
+
+      <section className="mt-8 rounded-lg border border-line bg-slate-50 p-4">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={contentPledgeAccepted}
+            onChange={(e) => setContentPledgeAccepted(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-line"
+          />
+          <span className="text-xs font700 leading-5 text-slate-600">
+            {copy.contentPledge}{" "}
+            <a
+              href="/legal/review-rules"
+              target="_blank"
+              className="text-primary underline underline-offset-4 hover:no-underline"
+            >
+              {language === "ru"
+                ? "Правила публикации"
+                : language === "zh"
+                  ? "评价规则"
+                  : "Review Rules"}
+            </a>
+          </span>
+        </label>
       </section>
 
       <div className="mt-7 flex flex-col gap-3 rounded-lg border border-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between">

@@ -106,6 +106,8 @@ export function createPublicReview(input: {
   likeCount?: number;
   likedByMe?: boolean;
   canEdit?: boolean;
+  status?: Review["status"];
+  moderationReason?: string;
 }): Review {
   const author = input.anonymous
     ? input.anonymousNumber
@@ -137,6 +139,8 @@ export function createPublicReview(input: {
     likeCount: input.likeCount ?? 0,
     likedByMe: input.likedByMe ?? false,
     canEdit: input.canEdit,
+    status: input.status,
+    moderationReason: input.moderationReason,
   };
 }
 

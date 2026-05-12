@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Heart } from "lucide-react";
+import { Flag, Heart } from "lucide-react";
 import type { Review } from "@/lib/types";
 import { RatingStars } from "@/components/rating-stars";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,8 @@ const reviewCardCopy: Record<
     signIn: string;
     authRequired: string;
     likeFailed: string;
+    report: string;
+    reportTitle: string;
   }
 > = {
   ru: {
@@ -39,6 +41,8 @@ const reviewCardCopy: Record<
     signIn: "Войти",
     authRequired: "Войдите, чтобы оценить комментарий.",
     likeFailed: "Не удалось оценить комментарий.",
+    report: "Пожаловаться",
+    reportTitle: "Пожаловаться на отзыв",
   },
   en: {
     edit: "Edit",
@@ -48,6 +52,8 @@ const reviewCardCopy: Record<
     signIn: "Sign in",
     authRequired: "Sign in to rate comments.",
     likeFailed: "Could not rate the comment.",
+    report: "Report",
+    reportTitle: "Report review",
   },
   zh: {
     edit: "编辑",
@@ -57,6 +63,8 @@ const reviewCardCopy: Record<
     signIn: "登录",
     authRequired: "请先登录再评价评论。",
     likeFailed: "无法评价评论。",
+    report: "举报",
+    reportTitle: "举报评价",
   },
 };
 
@@ -196,6 +204,14 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
               />
               {likeCount}
             </button>
+            <a
+              href={`/legal/complaint?reviewId=${encodeURIComponent(review.id)}`}
+              title={copy.reportTitle}
+              className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-panel px-2 text-xs font900 text-muted transition hover:border-danger hover:text-danger"
+            >
+              <Flag className="h-4 w-4" />
+              <span className="hidden sm:inline">{copy.report}</span>
+            </a>
           </div>
           {likeStatus && (
             <p className="mt-2 text-xs font800 text-muted">

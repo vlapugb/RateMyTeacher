@@ -43,6 +43,8 @@ export type Teacher = {
   saved?: boolean;
 };
 
+export type ReviewStatus = "pending" | "approved" | "rejected" | "needs_edit" | "disputed";
+
 export type Review = {
   id: string;
   teacherId: string;
@@ -67,4 +69,25 @@ export type Review = {
   likeCount?: number;
   likedByMe?: boolean;
   canEdit?: boolean;
+  status?: ReviewStatus;
+  moderationReason?: string;
+};
+
+export type ModerationAction = "approve" | "reject" | "request_edit" | "ban_user" | "dispute" | "restore";
+
+export type ModerationLog = {
+  id: string;
+  reviewId: string;
+  adminId: string;
+  action: ModerationAction;
+  reason?: string;
+  createdAt: string;
+};
+
+export type ComplaintInput = {
+  reviewId: string;
+  complainantName?: string;
+  complainantEmail?: string;
+  reason: string;
+  details?: string;
 };

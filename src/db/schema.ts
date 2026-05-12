@@ -12,6 +12,24 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
+export const MODERATION_ACTIONS = [
+  "approve",
+  "reject",
+  "request_edit",
+  "ban_user",
+  "dispute",
+  "restore",
+] as const;
+
+export const CONSENT_TYPES = [
+  "terms_of_service",
+  "personal_data",
+  "cookies_analytics",
+  "cookies_marketing",
+] as const;
+
+export const COMPLAINT_STATUSES = ["new", "resolved", "dismissed"] as const;
+
 export const user = pgTable(
   "user",
   {
@@ -113,8 +131,12 @@ export const teacherReviews = pgTable(
     advice: text("advice").notNull().default(""),
     anonymous: boolean("anonymous").notNull().default(false),
     anonymousNumber: integer("anonymous_number"),
-    status: text("status").notNull().default("approved"),
+    status: text("status").notNull().default("pending"),
+    moderationReason: text("moderation_reason"),
+    moderatedBy: text("moderated_by"),
+    moderatedAt: timestamp("moderated_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
     teacherIdx: index("teacher_reviews_teacher_id_idx").on(table.teacherId),
@@ -159,6 +181,68 @@ export const teacherReviews = pgTable(
       "teacher_reviews_overall_range_check",
       sql`${table.overall} is null or (${table.overall} >= 1 and ${table.overall} <= 5)`,
     ),
+  }),
+);
+
+export const moderationLogs = pgTable(
+  "moderation_logs",
+  {
+    id: text("id").primaryKey(),
+    reviewId: text("review_id")
+      .notNull()
+      .references(() => teacherReviews.id, { onDelete: "cascade" }),
+    adminId: text("admin_id").notNull(),
+    action: text("action").notNull(),
+    reason: text("reason"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    reviewIdx: index("moderation_logs_review_idx").on(table.reviewId),
+    adminIdx: index("moderation_logs_admin_idx").on(table.adminId),
+    createdIdx: index("moderation_logs_created_idx").on(table.createdAt),
+  }),
+);
+
+export const userConsents = pgTable(
+  "user_consents",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+    consentType: text("consent_type").notNull(),
+    documentVersion: text("document_version").notNull().default("1.0"),
+    acceptedAt: timestamp("accepted_at").notNull().defaultNow(),
+    ipHash: text("ip_hash").notNull(),
+    userAgentHash: text("user_agent_hash").notNull(),
+  },
+  (table) => ({
+    userIdx: index("user_consents_user_idx").on(table.userId),
+    typeUserIdx: index("user_consents_type_user_idx").on(
+      table.userId,
+      table.consentType,
+    ),
+  }),
+);
+
+export const complaintLogs = pgTable(
+  "complaint_logs",
+  {
+    id: text("id").primaryKey(),
+    reviewId: text("review_id")
+      .notNull()
+      .references(() => teacherReviews.id, { onDelete: "cascade" }),
+    complainantName: text("complainant_name"),
+    complainantEmail: text("complainant_email"),
+    reason: text("reason").notNull(),
+    details: text("details"),
+    status: text("status").notNull().default("new"),
+    adminId: text("admin_id"),
+    adminNotes: text("admin_notes"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    reviewIdx: index("complaint_logs_review_idx").on(table.reviewId),
+    statusIdx: index("complaint_logs_status_idx").on(table.status),
   }),
 );
 

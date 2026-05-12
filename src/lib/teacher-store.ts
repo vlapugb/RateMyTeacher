@@ -30,7 +30,11 @@ type TeacherReviewRow = {
   exam_process: string;
   advice: string;
   anonymous: boolean;
+  status: string;
+  moderation_reason: string | null;
+  moderated_by: string | null;
   created_at: Date | string;
+  updated_at: Date | string | null;
   like_count: string | number | null;
   liked_by_me: boolean | null;
 };
@@ -183,6 +187,90 @@ async function initializeTeacherRuntimeTables() {
   await db.execute(sql`
     create index if not exists teacher_review_likes_user_id_idx
       on teacher_review_likes (user_id)
+  `);
+
+  await db.execute(sql`
+    alter table teacher_reviews
+      add column if not exists moderation_reason text
+  `);
+  await db.execute(sql`
+    alter table teacher_reviews
+      add column if not exists moderated_by text
+  `);
+  await db.execute(sql`
+    alter table teacher_reviews
+      add column if not exists moderated_at timestamp
+  `);
+  await db.execute(sql`
+    alter table teacher_reviews
+      add column if not exists updated_at timestamp not null default now()
+  `);
+
+  await db.execute(sql.raw(`
+    create table if not exists moderation_logs (
+      id text primary key,
+      review_id text not null references teacher_reviews(id) on delete cascade,
+      admin_id text not null,
+      action text not null,
+      reason text,
+      created_at timestamp not null default now()
+    )
+  `));
+  await db.execute(sql`
+    create index if not exists moderation_logs_review_idx
+      on moderation_logs (review_id)
+  `);
+  await db.execute(sql`
+    create index if not exists moderation_logs_admin_idx
+      on moderation_logs (admin_id)
+  `);
+  await db.execute(sql`
+    create index if not exists moderation_logs_created_idx
+      on moderation_logs (created_at desc)
+  `);
+
+  await db.execute(sql.raw(`
+    create table if not exists user_consents (
+      id text primary key,
+      user_id text references "user"(id) on delete cascade,
+      consent_type text not null,
+      document_version text not null default '1.0',
+      accepted_at timestamp not null default now(),
+      ip_hash text not null,
+      user_agent_hash text not null
+    )
+  `));
+  await db.execute(sql`
+    create index if not exists user_consents_user_idx
+      on user_consents (user_id)
+  `);
+  await db.execute(sql`
+    create index if not exists user_consents_type_user_idx
+      on user_consents (user_id, consent_type)
+  `);
+
+  await db.execute(sql.raw(`
+    create table if not exists complaint_logs (
+      id text primary key,
+      review_id text not null references teacher_reviews(id) on delete cascade,
+      complainant_name text,
+      complainant_email text,
+      reason text not null,
+      details text,
+      status text not null default 'new',
+      admin_id text,
+      admin_notes text,
+      created_at timestamp not null default now(),
+      updated_at timestamp not null default now()
+    )
+  `));
+  await db.execute(sql`
+    create index if not exists complaint_logs_review_idx
+      on complaint_logs (review_id)
+  `);
+  await db.execute(sql`
+    create index if not exists complaint_logs_status_idx
+      on complaint_logs (status)
   `);
 
   initialized = true;
@@ -516,7 +604,6 @@ export async function getOwnReview(teacherId: string, userId: string) {
     ) likes on true
     where review.teacher_id = ${teacherId}
       and review.user_id = ${userId}
-      and review.status = ${REVIEW_CONFIG.approvedStatus}
     limit 1
   `);
   const [row] = result.rows as TeacherReviewRow[];
@@ -611,7 +698,7 @@ export async function createTeacherReview(input: {
         input.advice,
         input.anonymous,
         anonymousNumber,
-        REVIEW_CONFIG.approvedStatus,
+        REVIEW_CONFIG.pendingStatus,
       ],
     );
     await client.query("commit");
@@ -657,7 +744,10 @@ export async function updateTeacherReview(input: {
       difficult = ${input.difficult},
       exam_process = ${input.examProcess},
       advice = ${input.advice},
-      anonymous = ${input.anonymous}
+      anonymous = ${input.anonymous},
+      status = ${REVIEW_CONFIG.pendingStatus},
+      moderation_reason = null,
+      updated_at = now()
     where teacher_id = ${input.teacherId}
       and user_id = ${input.userId}
     returning id
@@ -939,6 +1029,8 @@ function rowToPublicReview(row: TeacherReviewRow, canEdit = false): Review {
     likeCount: Number(row.like_count ?? 0),
     likedByMe: Boolean(row.liked_by_me),
     canEdit,
+    status: row.status as Review["status"],
+    moderationReason: row.moderation_reason ?? undefined,
   });
 }
 
@@ -992,6 +1084,212 @@ function parseOptionalScore(value: string | null) {
   if (value == null) return undefined;
   return Math.round(Number(value) * RATING_SCALE.roundingPrecision) /
     RATING_SCALE.roundingPrecision;
+}
+
+export async function getReviewById(reviewId: string) {
+  await ensureTeacherRuntimeTables();
+
+  const result = await db.execute(sql`
+    select * from teacher_reviews where id = ${reviewId} limit 1
+  `);
+  const [row] = result.rows as TeacherReviewRow[];
+
+  return row ?? null;
+}
+
+export async function moderateReview(input: {
+  reviewId: string;
+  adminId: string;
+  action: string;
+  reason?: string;
+}) {
+  await ensureTeacherRuntimeTables();
+
+  const statusMap: Record<string, string> = {
+    approve: REVIEW_CONFIG.approvedStatus,
+    reject: REVIEW_CONFIG.rejectedStatus,
+    request_edit: REVIEW_CONFIG.needsEditStatus,
+    dispute: REVIEW_CONFIG.disputedStatus,
+    restore: REVIEW_CONFIG.approvedStatus,
+  };
+
+  const newStatus = statusMap[input.action];
+  if (!newStatus) return false;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("begin");
+
+    const updateResult = await client.query(
+      `
+        update teacher_reviews
+        set status = $1,
+            moderation_reason = $2,
+            moderated_by = $3,
+            moderated_at = now(),
+            updated_at = now()
+        where id = $4
+        returning id, teacher_id, user_id, status, comment, knowledge, communication, leniency, fairness, vibe, overall
+      `,
+      [newStatus, input.reason ?? null, input.adminId, input.reviewId],
+    );
+
+    const review = updateResult.rows[0] as TeacherReviewRow | undefined;
+
+    if (!review) {
+      await client.query("rollback");
+      return false;
+    }
+
+    const logId = randomUUID();
+    await client.query(
+      `
+        insert into moderation_logs (id, review_id, admin_id, action, reason)
+        values ($1, $2, $3, $4, $5)
+      `,
+      [logId, input.reviewId, input.adminId, input.action, input.reason ?? null],
+    );
+
+    await client.query("commit");
+
+    invalidateTeacherStatsCache();
+
+    return {
+      review: {
+        id: review.id,
+        teacher_id: review.teacher_id,
+        user_id: review.user_id,
+        status: review.status,
+        comment: review.comment,
+        knowledge: review.knowledge,
+        communication: review.communication,
+        leniency: review.leniency,
+        fairness: review.fairness,
+        vibe: review.vibe,
+        overall: review.overall,
+      },
+      action: input.action,
+    };
+  } catch (error) {
+    await client.query("rollback").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function recordUserConsent(input: {
+  userId?: string | null;
+  consentType: string;
+  documentVersion?: string;
+  ip: string;
+  userAgent: string;
+}) {
+  await ensureTeacherRuntimeTables();
+
+  const { createHash } = await import("crypto");
+
+  const ipHash = createHash("sha256")
+    .update(input.ip)
+    .digest("hex")
+    .slice(0, 16);
+  const uaHash = createHash("sha256")
+    .update(input.userAgent)
+    .digest("hex")
+    .slice(0, 16);
+  const id = randomUUID();
+
+  await db.execute(sql`
+    insert into user_consents (id, user_id, consent_type, document_version, ip_hash, user_agent_hash)
+    values (
+      ${id},
+      ${input.userId ?? null},
+      ${input.consentType},
+      ${input.documentVersion ?? "1.0"},
+      ${ipHash},
+      ${uaHash}
+    )
+  `);
+
+  return { id, consentType: input.consentType, accepted: true };
+}
+
+export async function createComplaint(input: {
+  reviewId: string;
+  complainantName?: string;
+  complainantEmail?: string;
+  reason: string;
+  details?: string;
+}) {
+  await ensureTeacherRuntimeTables();
+
+  const id = randomUUID();
+  const review = await getReviewById(input.reviewId);
+
+  if (!review) return null;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("begin");
+
+    await client.query(
+      `
+        insert into complaint_logs (id, review_id, complainant_name, complainant_email, reason, details)
+        values ($1, $2, $3, $4, $5, $6)
+      `,
+      [
+        id,
+        input.reviewId,
+        input.complainantName ?? null,
+        input.complainantEmail ?? null,
+        input.reason,
+        input.details ?? null,
+      ],
+    );
+
+    const isApproved = review.status === REVIEW_CONFIG.approvedStatus;
+
+    if (isApproved) {
+      await client.query(
+        `
+          update teacher_reviews
+          set status = $1, updated_at = now()
+          where id = $2
+        `,
+        [REVIEW_CONFIG.disputedStatus, input.reviewId],
+      );
+    }
+
+    await client.query("commit");
+
+    invalidateTeacherStatsCache();
+
+    return {
+      id,
+      reviewId: input.reviewId,
+      status: isApproved ? "disputed" : review.status,
+    };
+  } catch (error) {
+    await client.query("rollback").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getPendingReviews(limit = 50) {
+  await ensureTeacherRuntimeTables();
+
+  const result = await db.execute(sql`
+    select * from teacher_reviews
+    where status = ${REVIEW_CONFIG.pendingStatus}
+    order by created_at asc
+    limit ${limit}
+  `);
+
+  return result.rows as TeacherReviewRow[];
 }
 
 function invalidateTeacherStatsCache() {
