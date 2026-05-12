@@ -21,6 +21,7 @@ import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 import { localizeMetrics } from "@/lib/i18n";
 import { STORAGE_KEYS } from "@/lib/app-config";
 import { useSwipeNavigation } from "@/lib/swipe-navigation";
+import { RecentActivity } from "@/components/catalog/recent-activity";
 
 const PAGE_SIZE = 6;
 
@@ -271,6 +272,8 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
         totalLabel={copy.of}
         onPageChange={setCurrentPage}
       />
+
+      <RecentActivity teachers={catalogTeachers} />
     </div>
   );
 }
