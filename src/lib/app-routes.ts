@@ -9,6 +9,8 @@ export const APP_ROUTES = {
   teacher: (teacherId: string) => `/teachers/${encodeURIComponent(teacherId)}`,
   teacherRate: (teacherId: string) =>
     `/teachers/${encodeURIComponent(teacherId)}/rate`,
+  teacherReview: (teacherId: string, reviewId: string) =>
+    `/teachers/${encodeURIComponent(teacherId)}?review=${encodeURIComponent(reviewId)}`,
   teacherCourses: (teacherId: string) =>
     `/teachers/${encodeURIComponent(teacherId)}?tab=courses`,
   teacherComments: (teacherId: string) =>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   MessageSquareText,
   Star,
@@ -170,6 +170,14 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
   const [catalogTeachers, setCatalogTeachers] =
     useState<Teacher[]>(initialTeachers);
   const [activeActivity, setActiveActivity] = useState<"reviews" | "comments" | null>(null);
+  const scrollRestoreY = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (scrollRestoreY.current !== null) {
+      window.scrollTo({ top: scrollRestoreY.current });
+      scrollRestoreY.current = null;
+    }
+  }, [sortKey, sortDirection]);
 
   useEffect(() => {
     if (!showIntro) return;
@@ -243,133 +251,45 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
           </h1>
         </div>
 
-        {/* Stats grid — expandable cards */}
-        <div className="mt-4 grid w-full max-w-md grid-cols-3 gap-2 sm:mt-6 sm:flex sm:gap-3 sm:items-start">
-          <button
-            type="button"
-            disabled
-            className="cursor-default overflow-hidden rounded-lg border border-line bg-white px-2.5 py-2.5 shadow-sm text-left sm:px-3 sm:py-3"
-          >
-            <UsersRound className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
-            <div className="mt-1.5 text-lg font900 text-foreground tabular-nums sm:mt-2 sm:text-xl">
-              {catalogTeachers.length}
-            </div>
-            <div className="mt-0.5 truncate text-[10px] font800 text-slate-500 sm:text-xs">
-              {copy.teachers}
-            </div>
-          </button>
+        {/* Stats grid — unified equal-height expandable cards */}
+        <div className="mt-4 flex flex-wrap gap-2 sm:mt-6 sm:gap-3">
+          <StatCard
+            icon={<UsersRound className="h-4 w-4 sm:h-5 sm:w-5" />}
+            value={catalogTeachers.length}
+            label={copy.teachers}
+          />
 
-          {/* Ratings expandable */}
-          <div className="contents sm:block sm:relative">
-            <button
-              type="button"
-              onClick={() =>
-                setActiveActivity((c) =>
-                  c === "reviews" ? null : "reviews",
-                )
-              }
-              aria-expanded={activeActivity === "reviews"}
-              aria-controls="recent-activity-panel"
-              className={cn(
-                "overflow-hidden rounded-lg border px-2.5 py-2.5 shadow-sm text-left transition-[border-color,box-shadow,background-color,transform] duration-200",
-                "sm:px-3 sm:py-3 cursor-pointer hover:-translate-y-0.5 hover:shadow-md",
-                activeActivity === "reviews"
-                  ? "border-primary bg-primary-soft shadow-[0_0_0_3px_rgba(108,93,211,0.15)] rounded-b-[6px]"
-                  : "border-line bg-white",
-              )}
-            >
-              <Star
-                className={cn(
-                  "h-4 w-4 sm:h-5 sm:w-5",
-                  activeActivity === "reviews"
-                    ? "text-primary"
-                    : "text-primary",
-                )}
-              />
-              <div className="mt-1.5 text-lg font900 text-foreground tabular-nums sm:mt-2 sm:text-xl">
-                {totalReviews}
-              </div>
-              <div className="mt-0.5 truncate text-[10px] font800 text-slate-500 sm:text-xs">
-                {copy.reviews}
-              </div>
-            </button>
-            {activeActivity === "reviews" && (
-              <div className="hidden sm:block">
-                <RecentActivityExpansion
-                  kind="reviews"
-                  teachers={catalogTeachers}
-                  variant="popover"
-                  onClose={() => setActiveActivity(null)}
-                />
-              </div>
-            )}
-          </div>
+          <StatCard
+            icon={<Star className="h-4 w-4 sm:h-5 sm:w-5" />}
+            value={totalReviews}
+            label={copy.reviews}
+            isExpanded={activeActivity === "reviews"}
+            onClick={() =>
+              setActiveActivity((c) =>
+                c === "reviews" ? null : "reviews",
+              )
+            }
+          />
 
-          {/* Comments expandable — right-aligned popover on desktop */}
-          <div className="contents sm:block sm:relative">
-            <button
-              type="button"
-              onClick={() =>
-                setActiveActivity((c) =>
-                  c === "comments" ? null : "comments",
-                )
-              }
-              aria-expanded={activeActivity === "comments"}
-              aria-controls="recent-activity-panel"
-              className={cn(
-                "overflow-hidden rounded-lg border px-2.5 py-2.5 shadow-sm text-left transition-[border-color,box-shadow,background-color,transform] duration-200",
-                "sm:px-3 sm:py-3 cursor-pointer hover:-translate-y-0.5 hover:shadow-md",
-                activeActivity === "comments"
-                  ? "border-primary bg-primary-soft shadow-[0_0_0_3px_rgba(108,93,211,0.15)] rounded-b-[6px]"
-                  : "border-line bg-white",
-              )}
-            >
-              <MessageSquareText
-                className={cn(
-                  "h-4 w-4 sm:h-5 sm:w-5",
-                  activeActivity === "comments"
-                    ? "text-primary"
-                    : "text-primary",
-                )}
-              />
-              <div className="mt-1.5 text-lg font900 text-foreground tabular-nums sm:mt-2 sm:text-xl">
-                {totalComments}
-              </div>
-              <div className="mt-0.5 truncate text-[10px] font800 text-slate-500 sm:text-xs">
-                {copy.comments}
-              </div>
-            </button>
-            {activeActivity === "comments" && (
-              <div className="hidden sm:block">
-                <RecentActivityExpansion
-                  kind="comments"
-                  teachers={catalogTeachers}
-                  variant="popover"
-                  align="right"
-                  onClose={() => setActiveActivity(null)}
-                />
-              </div>
-            )}
-          </div>
+          <StatCard
+            icon={<MessageSquareText className="h-4 w-4 sm:h-5 sm:w-5" />}
+            value={totalComments}
+            label={copy.comments}
+            isExpanded={activeActivity === "comments"}
+            onClick={() =>
+              setActiveActivity((c) =>
+                c === "comments" ? null : "comments",
+              )
+            }
+          />
         </div>
 
-        {/* Mobile inline expansion — separate row below grid */}
-        {activeActivity === "reviews" && (
-          <div className="sm:hidden">
+        {/* Unified inline expansion — below the stats row */}
+        {activeActivity !== null && (
+          <div className="recent-inline-panel mt-2.5 w-full">
             <RecentActivityExpansion
-              kind="reviews"
+              kind={activeActivity}
               teachers={catalogTeachers}
-              variant="inline"
-              onClose={() => setActiveActivity(null)}
-            />
-          </div>
-        )}
-        {activeActivity === "comments" && (
-          <div className="sm:hidden">
-            <RecentActivityExpansion
-              kind="comments"
-              teachers={catalogTeachers}
-              variant="inline"
               onClose={() => setActiveActivity(null)}
             />
           </div>
@@ -391,12 +311,14 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
             setCurrentPage(1);
           }}
           onSortChange={(nextSortKey) => {
+            scrollRestoreY.current = window.scrollY;
             setSortKey(nextSortKey);
             setCurrentPage(1);
           }}
-          onSortDirectionToggle={() =>
-            setSortDirection((d) => (d === "desc" ? "asc" : "desc"))
-          }
+          onSortDirectionToggle={() => {
+            scrollRestoreY.current = window.scrollY;
+            setSortDirection((d) => (d === "desc" ? "asc" : "desc"));
+          }}
         />
 
         {showIntro && (
@@ -472,4 +394,43 @@ function getSortValue(teacher: Teacher, sortKey: CatalogSortKey) {
   if (sortKey === "commentCount") return teacher.commentCount ?? 0;
   if (sortKey === "rating") return teacher.rating;
   return teacher.scores[sortKey];
+}
+
+type StatCardProps = {
+  icon: React.ReactNode;
+  value: number;
+  label: string;
+  isExpanded?: boolean;
+  onClick?: () => void;
+};
+
+function StatCard({ icon, value, label, isExpanded, onClick }: StatCardProps) {
+  const isInteractive = onClick != null;
+  const Tag = isInteractive ? "button" : "div";
+
+  return (
+    <Tag
+      type={isInteractive ? "button" : undefined}
+      disabled={isInteractive ? undefined : undefined}
+      onClick={onClick}
+      aria-expanded={isInteractive ? isExpanded : undefined}
+      aria-controls={isInteractive ? "recent-activity-panel" : undefined}
+      className={cn(
+        "flex flex-1 min-w-0 flex-col rounded-lg border border-line bg-white px-2.5 py-2.5 shadow-sm text-left sm:px-3 sm:py-3",
+        isInteractive &&
+          "cursor-pointer transition-[border-color,box-shadow,background-color,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md",
+        isInteractive && isExpanded
+          ? "border-primary bg-primary-soft shadow-[0_0_0_3px_rgba(108,93,211,0.15)]"
+          : "",
+      )}
+    >
+      <div className="text-primary">{icon}</div>
+      <div className="mt-1.5 text-lg font900 text-foreground tabular-nums sm:mt-2 sm:text-xl">
+        {value}
+      </div>
+      <div className="mt-0.5 truncate text-[10px] font800 text-slate-500 sm:text-xs">
+        {label}
+      </div>
+    </Tag>
+  );
 }
