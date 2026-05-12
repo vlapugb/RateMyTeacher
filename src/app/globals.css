@@ -131,15 +131,11 @@ html[data-theme="dark"] {
 
 html {
   background: var(--background);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
+  overscroll-behavior-x: none;
 }
 
 body {
+  overscroll-behavior-x: none;
   min-height: 100vh;
   background:
     linear-gradient(180deg, rgba(241, 245, 249, 0.92), rgba(247, 248, 251, 1)),

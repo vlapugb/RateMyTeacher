@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Share2 } from "lucide-react";
 import { ProfileCommentsSection } from "@/components/teacher-profile/profile-comments-section";
@@ -22,6 +23,7 @@ import { APP_ROUTES } from "@/lib/app-routes";
 import { REVIEW_CONFIG } from "@/lib/app-config";
 import { deleteReview, getReviewsPage, getTeachers } from "@/lib/api-client";
 import { useConfirm } from "@/components/confirm-dialog";
+import { useSwipeNavigation } from "@/lib/swipe-navigation";
 import type { ReviewsPageResponse } from "@/lib/api-contracts";
 import type { Review, Teacher } from "@/lib/types";
 
@@ -157,6 +159,7 @@ export function TeacherProfile({
   initialReviewsPage,
 }: TeacherProfileProps) {
   const { language } = usePreferences();
+  const router = useRouter();
   const confirm = useConfirm();
   const copy = profileCopy[language];
   const [teacher, setTeacher] = useState(baseTeacher);
@@ -174,6 +177,14 @@ export function TeacherProfile({
   const [commentSort, setCommentSort] = useState<CommentSortKey>("newest");
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const skipInitialCommentLoad = useRef(true);
+
+  const profileSwipe = useSwipeNavigation({
+    onPrev: () => router.replace(APP_ROUTES.teachers),
+    onNext: () => undefined,
+    canGoPrev: true,
+    canGoNext: false,
+    blockNativeBackSwipe: true,
+  });
 
   useEffect(() => {
     if (skipInitialCommentLoad.current) {
@@ -289,7 +300,13 @@ export function TeacherProfile({
   }
 
   return (
-    <div className="page-soft-enter px-5 pb-8 md:px-8">
+    <div
+      className="page-soft-enter px-5 pb-8 md:px-8"
+      style={profileSwipe.containerStyle}
+      onTouchStart={profileSwipe.onTouchStart}
+      onTouchMove={profileSwipe.onTouchMove}
+      onTouchEnd={(event) => profileSwipe.onTouchEnd(event)}
+    >
       <div className="flex flex-wrap items-center justify-between gap-4 py-5">
         <Link
           href={APP_ROUTES.teachers}

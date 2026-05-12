@@ -20,6 +20,7 @@ import type { Teacher } from "@/lib/types";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 import { localizeMetrics } from "@/lib/i18n";
 import { STORAGE_KEYS } from "@/lib/app-config";
+import { useSwipeNavigation } from "@/lib/swipe-navigation";
 
 const PAGE_SIZE = 6;
 
@@ -169,6 +170,12 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
       });
   }, [catalogTeachers, query, sortKey]);
   const pageCount = Math.max(1, Math.ceil(filteredTeachers.length / PAGE_SIZE));
+  const swipe = useSwipeNavigation({
+    onPrev: () => setCurrentPage((page) => Math.max(1, page - 1)),
+    onNext: () => setCurrentPage((page) => Math.min(pageCount, page + 1)),
+    canGoPrev: currentPage > 1,
+    canGoNext: currentPage < pageCount,
+  });
   const visibleTeachers = filteredTeachers.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE,
@@ -244,6 +251,10 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
             ),
           );
         }}
+        swipeStyle={swipe.containerStyle}
+        onTouchStart={swipe.onTouchStart}
+        onTouchMove={swipe.onTouchMove}
+        onTouchEnd={(event) => swipe.onTouchEnd(event)}
       />
 
       <CatalogPagination
