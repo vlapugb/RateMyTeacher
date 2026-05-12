@@ -22,7 +22,7 @@ import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 import { localizeMetrics } from "@/lib/i18n";
 import { STORAGE_KEYS } from "@/lib/app-config";
 import { useSwipeNavigation } from "@/lib/swipe-navigation";
-import { RecentActivityDrawer } from "@/components/catalog/recent-activity-drawer";
+import { RecentActivityInlinePanel } from "@/components/catalog/recent-activity-inline-panel";
 
 const PAGE_SIZE = 6;
 const STATE_STORAGE_KEY = "studradar:catalog-state";
@@ -169,7 +169,7 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
   });
   const [catalogTeachers, setCatalogTeachers] =
     useState<Teacher[]>(initialTeachers);
-  const [recentKind, setRecentKind] = useState<"reviews" | "comments" | null>(null);
+  const [activeActivity, setActiveActivity] = useState<"reviews" | "comments" | null>(null);
 
   useEffect(() => {
     if (!showIntro) return;
@@ -244,21 +244,36 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
         </div>
 
         <CatalogSummary
+          activeType={activeActivity}
           items={[
             { Icon: UsersRound, value: catalogTeachers.length, label: copy.teachers },
             {
               Icon: Star,
               value: totalReviews,
               label: copy.reviews,
-              onClick: () => setRecentKind("reviews"),
+              activityKind: "reviews",
+              onClick: () =>
+                setActiveActivity((c) =>
+                  c === "reviews" ? null : "reviews",
+                ),
             },
             {
               Icon: MessageSquareText,
               value: totalComments,
               label: copy.comments,
-              onClick: () => setRecentKind("comments"),
+              activityKind: "comments",
+              onClick: () =>
+                setActiveActivity((c) =>
+                  c === "comments" ? null : "comments",
+                ),
             },
           ]}
+        />
+
+        <RecentActivityInlinePanel
+          activeType={activeActivity}
+          teachers={catalogTeachers}
+          onClose={() => setActiveActivity(null)}
         />
 
         <CatalogControls
@@ -326,13 +341,6 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
         onPageChange={setCurrentPage}
       />
 
-      <RecentActivityDrawer
-        open={recentKind !== null}
-        kind={recentKind ?? "comments"}
-        teachers={catalogTeachers}
-        onClose={() => setRecentKind(null)}
-        onKindChange={setRecentKind}
-      />
     </div>
   );
 }

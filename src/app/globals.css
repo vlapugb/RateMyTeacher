@@ -288,3 +288,28 @@ button {
 .hover-glow:hover {
   box-shadow: 0 0 0 3px rgba(108, 93, 211, 0.12);
 }
+
+.expandable-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    grid-template-rows 240ms ease,
+    opacity 180ms ease,
+    transform 240ms ease;
+}
+
+.expandable-panel[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.expandable-panel-inner {
+  overflow: hidden;
+}
+
+.expandable-panel-inner > * {
+  min-height: 0;
+}

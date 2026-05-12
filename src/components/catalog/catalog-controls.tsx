@@ -59,37 +59,41 @@ export function CatalogControls({
         >
           {allLabel}
         </button>
-        <label className="flex items-center justify-between gap-2 text-sm font900 text-slate-600 sm:ml-auto">
-          {sortingLabel}
-          <select
-            value={sortKey}
-            onChange={(event) =>
-              onSortChange(event.target.value as CatalogSortKey)
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <label className="flex flex-1 items-center justify-between gap-2 text-sm font900 text-slate-600 sm:flex-none">
+            {sortingLabel}
+            <select
+              value={sortKey}
+              onChange={(event) =>
+                onSortChange(event.target.value as CatalogSortKey)
+              }
+              className="focus-ring h-10 min-w-0 flex-1 rounded-lg border border-line bg-white px-3 text-sm font900 text-slate-700 sm:flex-none"
+            >
+              <option value="rating">{byRatingLabel}</option>
+              <option value="commentCount">{byCommentsLabel}</option>
+              <option value="reviewCount">{byReviewsLabel}</option>
+              {localizedMetrics.map((metric) => (
+                <option key={metric.key} value={metric.key}>
+                  {metric.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={onSortDirectionToggle}
+            className="focus-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-white text-slate-600 transition hover:border-primary hover:text-primary"
+            aria-label={
+              sortDirection === "desc" ? "По убыванию" : "По возрастанию"
             }
-            className="focus-ring h-10 min-w-0 flex-1 rounded-lg border border-line bg-white px-3 text-sm font900 text-slate-700 sm:flex-none"
           >
-            <option value="rating">{byRatingLabel}</option>
-            <option value="commentCount">{byCommentsLabel}</option>
-            <option value="reviewCount">{byReviewsLabel}</option>
-            {localizedMetrics.map((metric) => (
-              <option key={metric.key} value={metric.key}>
-                {metric.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          onClick={onSortDirectionToggle}
-          className="focus-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-white text-slate-600 transition hover:border-primary hover:text-primary"
-          aria-label={sortDirection === "desc" ? "По убыванию" : "По возрастанию"}
-        >
-          {sortDirection === "desc" ? (
-            <ArrowDownWideNarrow className="h-5 w-5" />
-          ) : (
-            <ArrowUpWideNarrow className="h-5 w-5" />
-          )}
-        </button>
+            {sortDirection === "desc" ? (
+              <ArrowDownWideNarrow className="h-5 w-5" />
+            ) : (
+              <ArrowUpWideNarrow className="h-5 w-5" />
+            )}
+          </button>
+        </div>
       </div>
     </>
   );
