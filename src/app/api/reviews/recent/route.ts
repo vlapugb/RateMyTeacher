@@ -5,7 +5,6 @@ import {
   type RecentReviewKind,
 } from "@/lib/teacher-store";
 import { REVIEW_CONFIG } from "@/lib/app-config";
-import { parseBoundedInteger } from "@/lib/http";
 import { logger } from "@/lib/logger";
 
 const DEFAULT_RECENT_LIMIT = 10;
@@ -40,4 +39,16 @@ export async function GET(request: Request) {
 
 function getRecentKind(value: string | null): RecentReviewKind {
   return value === "comments" ? "comments" : "reviews";
+}
+
+function parseBoundedInteger(
+  value: string | null | undefined,
+  options: { fallback: number; min: number; max?: number },
+) {
+  const parsed = value == null ? Number.NaN : Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return options.fallback;
+  const lowerBounded = Math.max(options.min, parsed);
+  return options.max == null
+    ? lowerBounded
+    : Math.min(options.max, lowerBounded);
 }

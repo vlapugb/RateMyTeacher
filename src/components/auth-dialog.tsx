@@ -6,17 +6,16 @@ import { Eye, EyeOff, MailCheck, ShieldCheck, X } from "lucide-react";
 import type { AuthDialogMode } from "@/components/auth-dialog-context";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
+import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
+import { STUDENT_IDENTITY } from "@/lib/app-config";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 import {
-  getStudentEmailForLogin,
-  isStudentEmail,
-  isStudentEmailMatchingLogin,
-  isStudentLogin,
-  normalizeStudentIdentifier,
+  STUDENT_EMAIL_PATTERN,
+  STUDENT_LOGIN_PATTERN,
 } from "@/lib/student-identity";
-import { APP_ROUTES, API_ROUTES } from "@/lib/app-routes";
-import { STUDENT_IDENTITY } from "@/lib/app-config";
 import { cn } from "@/lib/utils";
+
+const STUDENT_EMAIL_DOMAIN = `@${STUDENT_IDENTITY.emailDomain}`;
 
 type AuthDialogProps = {
   initialMode?: AuthDialogMode;
@@ -232,13 +231,13 @@ export function AuthDialog({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const login = normalizeStudentIdentifier(form.get("login"));
-    const email = normalizeStudentIdentifier(form.get("email"));
+    const login = String(form.get("login") ?? "").trim().toLowerCase();
+    const email = String(form.get("email") ?? "").trim().toLowerCase();
     const password = String(form.get("password") ?? "");
     const name = String(form.get("name") ?? copy.defaultName);
 
     if (mode === "reset") {
-      if (!isStudentEmail(email)) {
+      if (!STUDENT_EMAIL_PATTERN.test(email)) {
         setStatus(copy.emailOnlyFormat);
         return;
       }
@@ -268,12 +267,15 @@ export function AuthDialog({
     }
 
     if (mode === "signup") {
-      if (!isStudentLogin(login)) {
+      if (!STUDENT_LOGIN_PATTERN.test(login)) {
         setStatus(copy.loginFormat);
         return;
       }
 
-      if (!isStudentEmailMatchingLogin(email, login)) {
+      if (
+        !STUDENT_EMAIL_PATTERN.test(email) ||
+        email !== `${login}${STUDENT_EMAIL_DOMAIN}`
+      ) {
         setStatus(copy.emailFormat);
         return;
       }
@@ -285,7 +287,7 @@ export function AuthDialog({
     }
 
     if (mode === "signin") {
-      if (!isStudentEmail(email)) {
+      if (!STUDENT_EMAIL_PATTERN.test(email)) {
         setStatus(copy.emailOnlyFormat);
         return;
       }
@@ -311,7 +313,9 @@ export function AuthDialog({
           password,
           login,
           callbackURL: APP_ROUTES.account,
-        } as Parameters<typeof authClient.signUp.email>[0] & { login: string })).catch((error: unknown) => ({
+        } as Parameters<typeof authClient.signUp.email>[0] & {
+          login: string;
+        })).catch((error: unknown) => ({
       error: {
         status: 0,
         message:
@@ -407,7 +411,7 @@ export function AuthDialog({
                 <input
                   name="login"
                   required
-                  placeholder={STUDENT_IDENTITY.exampleLogin}
+                  placeholder="st055555"
                   className="focus-ring mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm sm:h-11"
                 />
               </label>
@@ -418,7 +422,7 @@ export function AuthDialog({
                 <input
                   name="name"
                   required
-                  minLength={STUDENT_IDENTITY.nameMinLength}
+                  minLength={2}
                   placeholder={copy.namePlaceholder}
                   className="focus-ring mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm sm:h-11"
                 />
@@ -432,7 +436,7 @@ export function AuthDialog({
               name="email"
               required
               type="email"
-              placeholder={getStudentEmailForLogin(STUDENT_IDENTITY.exampleLogin)}
+              placeholder="st055555@student.spbu.ru"
               className="focus-ring mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm sm:h-11"
             />
           </label>

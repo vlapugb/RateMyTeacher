@@ -1,3 +1,4 @@
+import { RATING_SCALE } from "@/lib/app-config";
 import { cn } from "@/lib/utils";
 
 type MetricBarProps = {
@@ -16,7 +17,12 @@ export function MetricBar({ label, value, inverse }: MetricBarProps) {
             "h-full rounded-full",
             inverse ? "bg-danger" : "bg-primary-strong",
           )}
-          style={{ width: `${Math.min(100, Math.max(0, value * 20))}%` }}
+          style={{
+            width: `${Math.min(
+              100,
+              Math.max(0, value * RATING_SCALE.percentMultiplier),
+            )}%`,
+          }}
         />
       </div>
       <span className="text-right font900 text-slate-700">{value}</span>

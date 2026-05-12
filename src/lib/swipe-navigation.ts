@@ -55,7 +55,11 @@ export function useSwipeNavigation(input: {
     const deltaX = event.touches[0].clientX - startXRef.current;
     const deltaY = event.touches[0].clientY - startYRef.current;
 
-    if (!swipingRef.current && Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) {
+    if (
+      !swipingRef.current &&
+      Math.abs(deltaX) > 10 &&
+      Math.abs(deltaX) > Math.abs(deltaY)
+    ) {
       swipingRef.current = true;
     }
 
@@ -64,37 +68,40 @@ export function useSwipeNavigation(input: {
     }
   }, []);
 
-  const onTouchEnd = useCallback((event: React.TouchEvent) => {
-    if (!swipingRef.current || startXRef.current == null) {
+  const onTouchEnd = useCallback(
+    (event: React.TouchEvent) => {
+      if (!swipingRef.current || startXRef.current == null) {
+        startXRef.current = null;
+        startYRef.current = null;
+        swipingRef.current = false;
+        edgeBlockingRef.current = false;
+        return;
+      }
+
+      const touch = event.changedTouches[0];
+      if (!touch) {
+        startXRef.current = null;
+        startYRef.current = null;
+        swipingRef.current = false;
+        edgeBlockingRef.current = false;
+        return;
+      }
+
+      const delta = touch.clientX - startXRef.current;
+
+      if (delta > SWIPE_THRESHOLD_PX && input.canGoPrev) {
+        input.onPrev();
+      } else if (delta < -SWIPE_THRESHOLD_PX && input.canGoNext) {
+        input.onNext();
+      }
+
       startXRef.current = null;
       startYRef.current = null;
       swipingRef.current = false;
       edgeBlockingRef.current = false;
-      return;
-    }
-
-    const touch = event.changedTouches[0];
-    if (!touch) {
-      startXRef.current = null;
-      startYRef.current = null;
-      swipingRef.current = false;
-      edgeBlockingRef.current = false;
-      return;
-    }
-
-    const delta = touch.clientX - startXRef.current;
-
-    if (delta > SWIPE_THRESHOLD_PX && input.canGoPrev) {
-      input.onPrev();
-    } else if (delta < -SWIPE_THRESHOLD_PX && input.canGoNext) {
-      input.onNext();
-    }
-
-    startXRef.current = null;
-    startYRef.current = null;
-    swipingRef.current = false;
-    edgeBlockingRef.current = false;
-  }, [input]);
+    },
+    [input],
+  );
 
   return {
     onTouchStart,

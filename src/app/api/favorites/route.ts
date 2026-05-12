@@ -1,26 +1,14 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { API_RATE_LIMITS } from "@/lib/app-config";
+import { favoriteTeacherSchema } from "@/lib/api-contracts";
 import {
   addFavoriteTeacher,
   getFavoriteTeacherIds,
   removeFavoriteTeacher,
 } from "@/lib/teacher-store";
-import { teachers } from "@/lib/mock-data";
-import {
-  API_RATE_LIMITS,
-  HTTP_STATUS,
-  RATE_LIMIT_NAMESPACE,
-} from "@/lib/app-config";
-import {
-  createRateLimitResponse,
-  jsonMessage,
-  readJson,
-} from "@/lib/http";
-
-const favoriteSchema = z.object({
-  teacherId: z.string().min(1),
-});
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
+import { teachers } from "@/lib/teacher-catalog";
 
 export async function GET(request: Request) {
   const session = await auth.api.getSession({
@@ -28,9 +16,9 @@ export async function GET(request: Request) {
   });
 
   if (!session) {
-    return jsonMessage(
-      "Войдите, чтобы смотреть избранное.",
-      HTTP_STATUS.unauthorized,
+    return NextResponse.json(
+      { message: "Войдите, чтобы смотреть избранное." },
+      { status: 401 },
     );
   }
 
@@ -40,34 +28,53 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const rateLimitResponse = createRateLimitResponse({
-    request,
-    namespace: RATE_LIMIT_NAMESPACE.favorites,
-    limit: API_RATE_LIMITS.favoriteWrites,
-    message: "Слишком много запросов. Попробуйте позже.",
-  });
-  if (rateLimitResponse) return rateLimitResponse;
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? request.headers.get("x-real-ip")
+    ?? "anonymous";
+  const rateLimit = checkRateLimit(
+    `favorites:${ip}`,
+    API_RATE_LIMITS.favoriteWrites,
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { message: "Слишком много запросов. Попробуйте позже." },
+      {
+        status: 429,
+        headers: getRateLimitHeaders(
+          API_RATE_LIMITS.favoriteWrites,
+          0,
+          `favorites:${ip}`,
+        ),
+      },
+    );
+  }
 
   const session = await auth.api.getSession({
     headers: request.headers,
   });
 
   if (!session) {
-    return jsonMessage(
-      "Войдите, чтобы добавить в избранное.",
-      HTTP_STATUS.unauthorized,
+    return NextResponse.json(
+      { message: "Войдите, чтобы добавить в избранное." },
+      { status: 401 },
     );
   }
 
-  const body = await readJson(request);
-  const parsed = favoriteSchema.safeParse(body);
+  const body = await request.json().catch(() => null);
+  const parsed = favoriteTeacherSchema.safeParse(body);
 
   if (!parsed.success) {
-    return jsonMessage("Неверный формат данных.", HTTP_STATUS.badRequest);
+    return NextResponse.json(
+      { message: "Неверный формат данных." },
+      { status: 400 },
+    );
   }
 
   if (!teachers.some((teacher) => teacher.id === parsed.data.teacherId)) {
-    return jsonMessage("Преподаватель не найден.", HTTP_STATUS.badRequest);
+    return NextResponse.json(
+      { message: "Преподаватель не найден." },
+      { status: 400 },
+    );
   }
 
   await addFavoriteTeacher(session.user.id, parsed.data.teacherId);
@@ -76,22 +83,35 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const rateLimitResponse = createRateLimitResponse({
-    request,
-    namespace: RATE_LIMIT_NAMESPACE.favorites,
-    limit: API_RATE_LIMITS.favoriteWrites,
-    message: "Слишком много запросов. Попробуйте позже.",
-  });
-  if (rateLimitResponse) return rateLimitResponse;
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? request.headers.get("x-real-ip")
+    ?? "anonymous";
+  const rateLimit = checkRateLimit(
+    `favorites:${ip}`,
+    API_RATE_LIMITS.favoriteWrites,
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { message: "Слишком много запросов. Попробуйте позже." },
+      {
+        status: 429,
+        headers: getRateLimitHeaders(
+          API_RATE_LIMITS.favoriteWrites,
+          0,
+          `favorites:${ip}`,
+        ),
+      },
+    );
+  }
 
   const session = await auth.api.getSession({
     headers: request.headers,
   });
 
   if (!session) {
-    return jsonMessage(
-      "Войдите, чтобы изменить избранное.",
-      HTTP_STATUS.unauthorized,
+    return NextResponse.json(
+      { message: "Войдите, чтобы изменить избранное." },
+      { status: 401 },
     );
   }
 
@@ -99,11 +119,17 @@ export async function DELETE(request: Request) {
   const teacherId = searchParams.get("teacherId");
 
   if (!teacherId) {
-    return jsonMessage("Преподаватель не найден.", HTTP_STATUS.badRequest);
+    return NextResponse.json(
+      { message: "Преподаватель не найден." },
+      { status: 400 },
+    );
   }
 
   if (!teachers.some((teacher) => teacher.id === teacherId)) {
-    return jsonMessage("Преподаватель не найден.", HTTP_STATUS.badRequest);
+    return NextResponse.json(
+      { message: "Преподаватель не найден." },
+      { status: 400 },
+    );
   }
 
   await removeFavoriteTeacher(session.user.id, teacherId);

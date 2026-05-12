@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MouseEvent, useState } from "react";
 import { Bookmark, MessageSquareText } from "lucide-react";
 import type { Teacher } from "@/lib/types";
-import { metrics } from "@/lib/mock-data";
+import { metrics } from "@/lib/teacher-catalog";
 import { RatingStars } from "@/components/rating-stars";
 import { ScorePill } from "@/components/score-pill";
 import { TeacherAvatar } from "@/components/teacher-avatar";
@@ -12,14 +12,13 @@ import { useAuthDialog } from "@/components/auth-dialog-context";
 import { authClient } from "@/lib/auth-client";
 import { formatReviewCount, localizeMetrics } from "@/lib/i18n";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
-import { API_ROUTES, APP_ROUTES } from "@/lib/app-routes";
+import { addFavoriteTeacher, removeFavoriteTeacher } from "@/lib/api-client";
+import { APP_ROUTES } from "@/lib/app-routes";
 import { cn } from "@/lib/utils";
 
 type TeacherCardProps = {
   teacher: Teacher;
-  href?: string;
   compact?: boolean;
-  onLinkClick?: () => void;
   onFavoriteChange?: (teacherId: string, saved: boolean) => void;
 };
 
@@ -50,9 +49,7 @@ const teacherCardCopy: Record<
 
 export function TeacherCard({
   teacher,
-  href,
   compact,
-  onLinkClick,
   onFavoriteChange,
 }: TeacherCardProps) {
   const { openAuthDialog } = useAuthDialog();
@@ -62,7 +59,6 @@ export function TeacherCard({
   const [saving, setSaving] = useState(false);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const saved = Boolean(teacher.saved);
-  const teacherHref = href?.trim() ? href : APP_ROUTES.teacher(teacher.id);
   const topMetrics = localizeMetrics(metrics, language)
     .filter((metric) => metric.key !== "overall")
     .map((metric) => ({
@@ -84,23 +80,16 @@ export function TeacherCard({
     setSaving(true);
     setFavoriteError(null);
     const nextSaved = !saved;
-    const response = await fetch(
-      nextSaved
-        ? API_ROUTES.favorites
-        : `${API_ROUTES.favorites}?teacherId=${encodeURIComponent(teacher.id)}`,
-      {
-        method: nextSaved ? "POST" : "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: nextSaved ? JSON.stringify({ teacherId: teacher.id }) : undefined,
-      },
+    const savedResult = await (nextSaved
+      ? addFavoriteTeacher(teacher.id)
+      : removeFavoriteTeacher(teacher.id)
     ).catch((error) => {
       console.error("Failed to toggle favorite", error);
       return null;
     });
     setSaving(false);
 
-    if (!response?.ok) {
-      if (response?.status === 401) openAuthDialog("signin");
+    if (!savedResult) {
       setFavoriteError(copy.favoriteFailed);
       return;
     }
@@ -110,8 +99,7 @@ export function TeacherCard({
 
   return (
     <Link
-      href={teacherHref}
-      onClick={onLinkClick}
+      href={APP_ROUTES.teacher(teacher.id)}
       className={cn(
         "interactive-card group block rounded-lg border border-line bg-panel p-3 shadow-sm hover:border-primary hover:shadow-md sm:p-4",
         compact && "p-3",

@@ -1,22 +1,9 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { API_RATE_LIMITS } from "@/lib/app-config";
+import { likeReviewSchema } from "@/lib/api-contracts";
 import { setTeacherReviewLike } from "@/lib/teacher-store";
-import {
-  API_RATE_LIMITS,
-  HTTP_STATUS,
-  RATE_LIMIT_NAMESPACE,
-} from "@/lib/app-config";
-import {
-  createRateLimitResponse,
-  jsonMessage,
-  readJson,
-} from "@/lib/http";
-import { logger } from "@/lib/logger";
-
-const likeSchema = z.object({
-  liked: z.boolean(),
-});
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
 
 type RouteContext = {
   params: Promise<{
@@ -25,29 +12,42 @@ type RouteContext = {
 };
 
 export async function POST(request: Request, context: RouteContext) {
-  const rateLimitResponse = createRateLimitResponse({
-    request,
-    namespace: RATE_LIMIT_NAMESPACE.likes,
-    limit: API_RATE_LIMITS.commentLikes,
-    message: "Слишком много запросов. Попробуйте позже.",
-  });
-  if (rateLimitResponse) return rateLimitResponse;
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? request.headers.get("x-real-ip")
+    ?? "anonymous";
+  const rateLimit = checkRateLimit(`likes:${ip}`, API_RATE_LIMITS.reviewLikes);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { message: "Слишком много запросов. Попробуйте позже." },
+      {
+        status: 429,
+        headers: getRateLimitHeaders(
+          API_RATE_LIMITS.reviewLikes,
+          0,
+          `likes:${ip}`,
+        ),
+      },
+    );
+  }
 
   const session = await auth.api.getSession({
     headers: request.headers,
   });
 
   if (!session) {
-    return jsonMessage(
-      "Войдите, чтобы оценить комментарий.",
-      HTTP_STATUS.unauthorized,
+    return NextResponse.json(
+      { message: "Войдите, чтобы оценить комментарий." },
+      { status: 401 },
     );
   }
 
-  const parsed = likeSchema.safeParse(await readJson(request));
+  const parsed = likeReviewSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsed.success) {
-    return jsonMessage("Проверьте действие.", HTTP_STATUS.badRequest);
+    return NextResponse.json(
+      { message: "Проверьте действие." },
+      { status: 400 },
+    );
   }
 
   const { reviewId } = await context.params;
@@ -60,15 +60,18 @@ export async function POST(request: Request, context: RouteContext) {
       parsed.data.liked,
     );
   } catch (error) {
-    logger.error({ err: error }, "Failed to set review like");
-    return jsonMessage(
-      "Не удалось обновить оценку комментария.",
-      HTTP_STATUS.internalServerError,
+    console.error("Failed to set review like", error);
+    return NextResponse.json(
+      { message: "Не удалось обновить оценку комментария." },
+      { status: 500 },
     );
   }
 
   if (result == null) {
-    return jsonMessage("Комментарий не найден.", HTTP_STATUS.notFound);
+    return NextResponse.json(
+      { message: "Комментарий не найден." },
+      { status: 404 },
+    );
   }
 
   return NextResponse.json(result);

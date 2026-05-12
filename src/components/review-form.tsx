@@ -1,29 +1,29 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Star } from "lucide-react";
 import { useAuthDialog } from "@/components/auth-dialog-context";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
-import { metrics, teachers } from "@/lib/mock-data";
+import { metrics, teachers } from "@/lib/teacher-catalog";
 import { facultyText, localizeMetrics } from "@/lib/i18n";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
+import {
+  ApiRequestError,
+  createReview,
+  deleteReview,
+  updateReview,
+} from "@/lib/api-client";
+import { useConfirm } from "@/components/confirm-dialog";
+import { APP_ROUTES } from "@/lib/app-routes";
 import type { MetricKey, Review } from "@/lib/types";
-import {
-  API_ROUTES,
-  APP_ROUTES,
-} from "@/lib/app-routes";
-import {
-  HTTP_STATUS,
-  RATING_SCALE,
-  REVIEW_CONFIG,
-} from "@/lib/app-config";
 import { cn } from "@/lib/utils";
 
 type ReviewFormProps = {
   teacherId?: string;
+  initialOwnReview?: Review | null;
 };
 
 const defaultScores = (): Partial<Record<MetricKey, number>> => ({});
@@ -160,12 +160,16 @@ const reviewFormCopy: Record<
   },
 };
 
-export function ReviewForm({ teacherId }: ReviewFormProps) {
+export function ReviewForm({
+  teacherId,
+  initialOwnReview = null,
+}: ReviewFormProps) {
   const router = useRouter();
   const { openAuthDialog } = useAuthDialog();
   const session = authClient.useSession();
   const user = session.data?.user;
   const { language } = usePreferences();
+  const confirm = useConfirm();
   const copy = reviewFormCopy[language];
   const localizedMetrics = useMemo(
     () => localizeMetrics(metrics, language),
@@ -175,36 +179,21 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
     () => teachers.find((item) => item.id === teacherId) ?? teachers[0],
     [teacherId],
   );
-  const [scores, setScores] =
-    useState<Partial<Record<MetricKey, number>>>(defaultScores);
-  const [draft, setDraft] = useState(defaultDraft);
-  const [ownReview, setOwnReview] = useState<Review | null>(null);
-  const [publishAnonymously, setPublishAnonymously] = useState(false);
+  const [scores, setScores] = useState<Partial<Record<MetricKey, number>>>(
+    () => initialOwnReview?.scores ?? defaultScores(),
+  );
+  const [draft, setDraft] = useState(() =>
+    initialOwnReview
+      ? { comment: getReviewComment(initialOwnReview) }
+      : defaultDraft,
+  );
+  const [ownReview, setOwnReview] = useState<Review | null>(initialOwnReview);
+  const [publishAnonymously, setPublishAnonymously] = useState(
+    Boolean(initialOwnReview?.anonymous),
+  );
   const [status, setStatus] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-
-    fetch(API_ROUTES.reviewsForTeacher(teacher.id))
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body: { ownReview?: Review | null } | null) => {
-        if (!active || !body?.ownReview) return;
-
-        setOwnReview(body.ownReview);
-        setScores(body.ownReview.scores ?? {});
-        setDraft({
-          comment: getReviewComment(body.ownReview),
-        });
-        setPublishAnonymously(Boolean(body.ownReview.anonymous));
-      })
-      .catch(() => undefined);
-
-    return () => {
-      active = false;
-    };
-  }, [teacher.id]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -244,20 +233,24 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
       publishAnonymously: !user || publishAnonymously,
     };
 
-    const response = await fetch(API_ROUTES.reviews, {
-      method: ownReview ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }).catch(() => null);
+    const response = await (ownReview
+      ? updateReview(payload)
+      : createReview(payload)
+    )
+      .then(() => ({ ok: true, status: 200 }))
+      .catch((error) => ({
+        ok: false,
+        status: error instanceof ApiRequestError ? error.status : 0,
+      }));
 
     setSubmitting(false);
 
-    if (!response?.ok) {
-      if (!response) {
+    if (!response.ok) {
+      if (response.status === 0) {
         setStatus(copy.submitFailed);
         return;
       }
-      setAuthRequired(response?.status === 401);
+      setAuthRequired(response.status === 401);
       setStatus(getSubmitErrorMessage(response.status, copy));
       return;
     }
@@ -272,20 +265,25 @@ export function ReviewForm({ teacherId }: ReviewFormProps) {
   }
 
   async function handleDelete() {
-    if (!ownReview || !window.confirm(copy.deleteConfirm)) {
-      return;
-    }
+    if (!ownReview) return;
+    const confirmed = await confirm({
+      message: copy.deleteConfirm,
+      variant: "danger",
+      confirmLabel: language === "ru" ? "Удалить" : language === "zh" ? "删除" : "Delete",
+      cancelLabel: language === "ru" ? "Отмена" : language === "zh" ? "取消" : "Cancel",
+    });
+    if (!confirmed) return;
 
     setSubmitting(true);
     setStatus(null);
 
-    const response = await fetch(API_ROUTES.reviewsForTeacher(teacher.id), {
-      method: "DELETE",
-    }).catch(() => null);
+    const deleted = await deleteReview({ teacherId: teacher.id })
+      .then(() => true)
+      .catch(() => false);
 
     setSubmitting(false);
 
-    if (!response?.ok) {
+    if (!deleted) {
       setStatus(copy.deleteFailed);
       return;
     }
@@ -449,10 +447,7 @@ function RatingInput({
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex gap-1">
-        {Array.from(
-          { length: RATING_SCALE.stars },
-          (_, index) => index + 1,
-        ).map((score) => (
+        {[1, 2, 3, 4, 5].map((score) => (
           <button
             key={score}
             type="button"
@@ -496,7 +491,7 @@ function TextArea({
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        maxLength={REVIEW_CONFIG.textMaxLength}
+        maxLength={500}
         aria-label={ariaLabel}
         placeholder={placeholder}
         className="focus-ring min-h-32 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font700 leading-6 text-foreground placeholder:text-slate-400"
@@ -513,9 +508,9 @@ function getSubmitErrorMessage(
   status: number,
   copy: (typeof reviewFormCopy)[LanguagePreference],
 ) {
-  if (status === HTTP_STATUS.forbidden) return copy.verifyEmail;
-  if (status === HTTP_STATUS.conflict) return copy.alreadyReviewed;
-  if (status === HTTP_STATUS.notFound) return copy.editMissing;
+  if (status === 403) return copy.verifyEmail;
+  if (status === 409) return copy.alreadyReviewed;
+  if (status === 404) return copy.editMissing;
 
   return copy.submitFailed;
 }

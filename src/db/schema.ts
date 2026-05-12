@@ -3,28 +3,14 @@ import {
   check,
   index,
   integer,
-  jsonb,
   numeric,
-  pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
   uniqueIndex,
-  uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-
-export const courseTypeEnum = pgEnum("course_type", ["pi", "tp"]);
-export const moderationStatusEnum = pgEnum("moderation_status", [
-  "pending",
-  "approved",
-  "rejected",
-]);
-export const favoriteTargetEnum = pgEnum("favorite_target", [
-  "teacher",
-  "course",
-]);
 
 export const user = pgTable(
   "user",
@@ -107,191 +93,105 @@ export const verification = pgTable(
   }),
 );
 
-export const teachers = pgTable(
-  "teachers",
+export const teacherReviews = pgTable(
+  "teacher_reviews",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    fullName: text("full_name").notNull(),
-    department: text("department"),
-    bio: text("bio"),
-    avatarUrl: text("avatar_url"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (table) => ({
-    nameIdx: index("teachers_full_name_idx").on(table.fullName),
-  }),
-);
-
-export const courses = pgTable(
-  "courses",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    title: text("title").notNull(),
-    type: courseTypeEnum("type").notNull(),
-    semester: integer("semester"),
-    description: text("description"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (table) => ({
-    titleIdx: index("courses_title_idx").on(table.title),
-  }),
-);
-
-export const teacherCourses = pgTable(
-  "teacher_courses",
-  {
-    teacherId: uuid("teacher_id")
-      .notNull()
-      .references(() => teachers.id, { onDelete: "cascade" }),
-    courseId: uuid("course_id")
-      .notNull()
-      .references(() => courses.id, { onDelete: "cascade" }),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.teacherId, table.courseId] }),
-  }),
-);
-
-export const reviews = pgTable(
-  "reviews",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    teacherId: uuid("teacher_id")
-      .notNull()
-      .references(() => teachers.id, { onDelete: "cascade" }),
-    courseId: uuid("course_id").references(() => courses.id, {
-      onDelete: "set null",
-    }),
-    knowledge: numeric("knowledge", { precision: 3, scale: 1 }).notNull(),
-    communication: numeric("communication", { precision: 3, scale: 1 }).notNull(),
-    leniency: numeric("leniency", { precision: 3, scale: 1 }).notNull(),
-    fairness: numeric("fairness", { precision: 3, scale: 1 }).notNull(),
-    vibe: numeric("vibe", { precision: 3, scale: 1 }).notNull(),
-    overall: numeric("overall", { precision: 3, scale: 1 }).notNull(),
-    liked: text("liked").notNull(),
-    difficult: text("difficult").notNull(),
-    examProcess: text("exam_process").notNull(),
-    advice: text("advice").notNull(),
-    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    id: text("id").primaryKey(),
+    teacherId: text("teacher_id").notNull(),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+    authorName: text("author_name"),
+    knowledge: numeric("knowledge", { precision: 3, scale: 1 }),
+    communication: numeric("communication", { precision: 3, scale: 1 }),
+    leniency: numeric("leniency", { precision: 3, scale: 1 }),
+    fairness: numeric("fairness", { precision: 3, scale: 1 }),
+    vibe: numeric("vibe", { precision: 3, scale: 1 }),
+    overall: numeric("overall", { precision: 3, scale: 1 }),
+    comment: text("comment").notNull().default(""),
+    liked: text("liked").notNull().default(""),
+    difficult: text("difficult").notNull().default(""),
+    examProcess: text("exam_process").notNull().default(""),
+    advice: text("advice").notNull().default(""),
     anonymous: boolean("anonymous").notNull().default(false),
-    status: moderationStatusEnum("status").notNull().default("pending"),
+    anonymousNumber: integer("anonymous_number"),
+    status: text("status").notNull().default("approved"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    teacherIdx: index("reviews_teacher_id_idx").on(table.teacherId),
-    courseIdx: index("reviews_course_id_idx").on(table.courseId),
-    statusIdx: index("reviews_status_idx").on(table.status),
+    teacherIdx: index("teacher_reviews_teacher_id_idx").on(table.teacherId),
+    teacherStatusCreatedIdx: index(
+      "teacher_reviews_teacher_status_created_idx",
+    ).on(table.teacherId, table.status, table.createdAt),
+    statusTeacherIdx: index("teacher_reviews_status_teacher_idx").on(
+      table.status,
+      table.teacherId,
+    ),
+    userIdx: index("teacher_reviews_user_id_idx").on(table.userId),
+    userTeacherIdx: uniqueIndex("teacher_reviews_user_teacher_idx")
+      .on(table.userId, table.teacherId)
+      .where(sql`${table.userId} is not null`),
+    userTeacherStatusIdx: index("teacher_reviews_user_teacher_status_idx")
+      .on(table.userId, table.teacherId, table.status)
+      .where(sql`${table.userId} is not null`),
+    anonymousNumberIdx: index("teacher_reviews_anonymous_number_idx")
+      .on(table.teacherId, table.anonymousNumber)
+      .where(sql`${table.userId} is null and ${table.anonymous} = true`),
     knowledgeCheck: check(
-      "reviews_knowledge_check",
-      sql`${table.knowledge} >= 1 and ${table.knowledge} <= 5`,
+      "teacher_reviews_knowledge_range_check",
+      sql`${table.knowledge} is null or (${table.knowledge} >= 1 and ${table.knowledge} <= 5)`,
     ),
     communicationCheck: check(
-      "reviews_communication_check",
-      sql`${table.communication} >= 1 and ${table.communication} <= 5`,
+      "teacher_reviews_communication_range_check",
+      sql`${table.communication} is null or (${table.communication} >= 1 and ${table.communication} <= 5)`,
     ),
     leniencyCheck: check(
-      "reviews_leniency_check",
-      sql`${table.leniency} >= 1 and ${table.leniency} <= 5`,
+      "teacher_reviews_leniency_range_check",
+      sql`${table.leniency} is null or (${table.leniency} >= 1 and ${table.leniency} <= 5)`,
     ),
     fairnessCheck: check(
-      "reviews_fairness_check",
-      sql`${table.fairness} >= 1 and ${table.fairness} <= 5`,
+      "teacher_reviews_fairness_range_check",
+      sql`${table.fairness} is null or (${table.fairness} >= 1 and ${table.fairness} <= 5)`,
     ),
     vibeCheck: check(
-      "reviews_vibe_check",
-      sql`${table.vibe} >= 1 and ${table.vibe} <= 5`,
+      "teacher_reviews_vibe_range_check",
+      sql`${table.vibe} is null or (${table.vibe} >= 1 and ${table.vibe} <= 5)`,
     ),
     overallCheck: check(
-      "reviews_overall_check",
-      sql`${table.overall} >= 1 and ${table.overall} <= 5`,
+      "teacher_reviews_overall_range_check",
+      sql`${table.overall} is null or (${table.overall} >= 1 and ${table.overall} <= 5)`,
     ),
   }),
 );
 
-export const comments = pgTable(
-  "comments",
+export const teacherFavorites = pgTable(
+  "teacher_favorites",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    reviewId: uuid("review_id")
-      .notNull()
-      .references(() => reviews.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    body: text("body").notNull(),
-    status: moderationStatusEnum("status").notNull().default("pending"),
+    teacherId: text("teacher_id").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => ({
-    reviewIdx: index("comments_review_id_idx").on(table.reviewId),
+    pk: primaryKey({ columns: [table.userId, table.teacherId] }),
   }),
 );
 
-export const favorites = pgTable(
-  "favorites",
+export const teacherReviewLikes = pgTable(
+  "teacher_review_likes",
   {
+    reviewId: text("review_id")
+      .notNull()
+      .references(() => teacherReviews.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    targetType: favoriteTargetEnum("target_type").notNull(),
-    targetId: uuid("target_id").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.targetType, table.targetId] }),
+    pk: primaryKey({ columns: [table.reviewId, table.userId] }),
+    reviewIdx: index("teacher_review_likes_review_id_idx").on(table.reviewId),
+    userIdx: index("teacher_review_likes_user_id_idx").on(table.userId),
   }),
 );
 
-export const recentViews = pgTable(
-  "recent_views",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    targetType: favoriteTargetEnum("target_type").notNull(),
-    targetId: uuid("target_id").notNull(),
-    title: text("title").notNull(),
-    subtitle: text("subtitle"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (table) => ({
-    userIdx: index("recent_views_user_id_idx").on(table.userId),
-  }),
-);
 
-export const reviewDrafts = pgTable(
-  "review_drafts",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    teacherId: uuid("teacher_id").references(() => teachers.id, {
-      onDelete: "set null",
-    }),
-    courseId: uuid("course_id").references(() => courses.id, {
-      onDelete: "set null",
-    }),
-    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (table) => ({
-    userIdx: index("review_drafts_user_id_idx").on(table.userId),
-  }),
-);
-
-export const faqItems = pgTable("faq_items", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  question: text("question").notNull(),
-  answer: text("answer").notNull(),
-  position: integer("position").notNull().default(0),
-  published: boolean("published").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});

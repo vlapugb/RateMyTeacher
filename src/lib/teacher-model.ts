@@ -1,5 +1,5 @@
-import { REVIEW_IDENTITY } from "@/lib/app-config";
 import type { MetricKey, Review, Teacher } from "@/lib/types";
+import { RATING_SCALE } from "@/lib/app-config";
 
 export type TeacherScoreMap = Record<MetricKey, number>;
 
@@ -52,23 +52,23 @@ export function applyStatsToTeacher(
     return { ...baseTeacher, saved };
   }
 
+  const ratingValues = Object.values(stats.scores).filter(
+    (value): value is number => typeof value === "number",
+  );
+  const rating =
+    stats.scores.overall ??
+    (ratingValues.length > 0
+      ? roundScore(
+          ratingValues.reduce((sum, value) => sum + value, 0) /
+            ratingValues.length,
+        )
+      : 0);
   const scores = {
     ...emptyScores,
     ...Object.fromEntries(
       Object.entries(stats.scores).map(([key, value]) => [key, value ?? 0]),
     ),
   } as TeacherScoreMap;
-  const scoreValues = Object.values(scores).filter(
-    (value) => typeof value === "number",
-  );
-  const rating =
-    scores.overall ??
-    (scoreValues.length > 0
-      ? roundScore(
-          scoreValues.reduce((sum, value) => sum + value, 0) /
-            scoreValues.length,
-        )
-      : 0);
 
   return {
     ...baseTeacher,
@@ -110,8 +110,8 @@ export function createPublicReview(input: {
   const author = input.anonymous
     ? input.anonymousNumber
       ? `Аноним #${input.anonymousNumber}`
-      : REVIEW_IDENTITY.anonymousLabel
-    : input.author || REVIEW_IDENTITY.studentLabel;
+      : "Анонимно"
+    : input.author || "Студент";
 
   return {
     id: input.id,
@@ -119,13 +119,13 @@ export function createPublicReview(input: {
     author,
     initial: author.trim().charAt(0).toUpperCase() || "С",
     course: input.course,
-    year: REVIEW_IDENTITY.publishedReviewLabel,
+    year: "Опубликованный отзыв",
     createdAt: input.createdAt,
     createdAgo: formatCreatedAgo(input.createdAt),
     rating: input.rating,
     hasRating: input.hasRating,
     body: input.body,
-    tags: input.anonymous ? [REVIEW_IDENTITY.anonymousTag] : [],
+    tags: input.anonymous ? ["анонимно"] : [],
     scores: input.scores,
     comment: input.comment,
     liked: input.liked,
@@ -158,19 +158,8 @@ function formatCreatedAgo(createdAt: string) {
   return `${days} дн. назад`;
 }
 
-export function roundScore(value: number) {
+function roundScore(value: number) {
   if (!Number.isFinite(value)) return 0;
-  return Math.round(value * 100) / 100;
-}
-
-export function joinReviewTextParts(parts: {
-  liked: string;
-  difficult: string;
-  examProcess: string;
-  advice: string;
-}) {
-  return [parts.liked, parts.difficult, parts.examProcess, parts.advice]
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .join(" ");
+  return Math.round(value * RATING_SCALE.roundingPrecision) /
+    RATING_SCALE.roundingPrecision;
 }

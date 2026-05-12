@@ -1,5 +1,4 @@
 import "dotenv/config";
-import { requireEmailEnv } from "@/lib/email-core";
 
 const command = process.argv[2] ?? "auth-url";
 const redirectUri =
@@ -8,7 +7,7 @@ const scope = "https://www.googleapis.com/auth/gmail.send";
 
 if (command === "auth-url") {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-  url.searchParams.set("client_id", requireEmailEnv("GMAIL_CLIENT_ID"));
+  url.searchParams.set("client_id", requireEnv("GMAIL_CLIENT_ID"));
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", scope);
@@ -16,14 +15,11 @@ if (command === "auth-url") {
   url.searchParams.set("prompt", "consent");
 
   console.log(url.toString());
-  process.exit(0);
-}
-
-if (command === "exchange") {
+} else if (command === "exchange") {
   const code = process.argv[3];
 
   if (!code) {
-    console.error("Usage: npx tsx scripts/gmail-oauth.ts exchange -- CODE_FROM_REDIRECT_URL");
+    console.error("Usage: npm run gmail:exchange -- CODE_FROM_REDIRECT_URL");
     process.exit(1);
   }
 
@@ -33,8 +29,8 @@ if (command === "exchange") {
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams({
-      client_id: requireEmailEnv("GMAIL_CLIENT_ID"),
-      client_secret: requireEmailEnv("GMAIL_CLIENT_SECRET"),
+      client_id: requireEnv("GMAIL_CLIENT_ID"),
+      client_secret: requireEnv("GMAIL_CLIENT_SECRET"),
       code,
       grant_type: "authorization_code",
       redirect_uri: redirectUri,
@@ -49,8 +45,17 @@ if (command === "exchange") {
 
   console.log(`GMAIL_REFRESH_TOKEN=${body.refresh_token ?? ""}`);
   console.log(`GMAIL_REDIRECT_URI=${redirectUri}`);
-  process.exit(0);
+} else {
+  console.error("Usage: npm run gmail:auth-url OR npm run gmail:exchange -- CODE");
+  process.exit(1);
 }
 
-console.error("Usage: npx tsx scripts/gmail-oauth.ts auth-url OR npx tsx scripts/gmail-oauth.ts exchange -- CODE");
-process.exit(1);
+function requireEnv(key) {
+  const value = process.env[key];
+
+  if (!value) {
+    throw new Error(`${key} is not configured`);
+  }
+
+  return value;
+}
