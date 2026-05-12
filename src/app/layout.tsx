@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
-import { ANALYTICS_CONFIG, APP_NAME } from "@/lib/app-config";
+import { ANALYTICS_CONFIG, APP_NAME, STORAGE_KEYS } from "@/lib/app-config";
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -17,6 +17,19 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body>
+        <Script id="preferences-bootstrap" strategy="beforeInteractive">
+          {`
+            (function() {
+              try {
+                var theme = localStorage.getItem('${STORAGE_KEYS.theme}') || 'light';
+                var language = localStorage.getItem('${STORAGE_KEYS.language}') || 'ru';
+                document.documentElement.dataset.theme = theme;
+                document.documentElement.dataset.themePreference = theme;
+                document.documentElement.lang = language;
+              } catch (error) {}
+            })();
+          `}
+        </Script>
         {ANALYTICS_CONFIG.yandexMetrikaId && (
           <Script id="yandex-metrika" strategy="afterInteractive">
             {`

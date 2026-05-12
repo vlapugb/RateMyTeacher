@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { STORAGE_KEYS } from "@/lib/app-config";
 
-export type ThemePreference = "system" | "light" | "dark";
+export type ThemePreference = "light" | "dark";
 export type LanguagePreference = "ru" | "en" | "zh";
 
 type Preferences = {
@@ -12,7 +12,7 @@ type Preferences = {
 };
 
 const defaultPreferences: Preferences = {
-  theme: "system",
+  theme: "light",
   language: "ru",
 };
 
@@ -20,7 +20,6 @@ export const themeOptions: {
   value: ThemePreference;
   label: Record<LanguagePreference, string>;
 }[] = [
-  { value: "system", label: { ru: "Системная", en: "System", zh: "跟随系统" } },
   { value: "light", label: { ru: "Светлая", en: "Light", zh: "浅色" } },
   { value: "dark", label: { ru: "Темная", en: "Dark", zh: "深色" } },
 ];
@@ -105,14 +104,7 @@ function readPreferences(): Preferences {
 }
 
 function applyPreferences(preferences: Preferences) {
-  const resolvedTheme =
-    preferences.theme === "system"
-      ? window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-      : preferences.theme;
-
-  document.documentElement.dataset.theme = resolvedTheme;
+  document.documentElement.dataset.theme = preferences.theme;
   document.documentElement.dataset.themePreference = preferences.theme;
   document.documentElement.lang = preferences.language;
 }
@@ -122,7 +114,7 @@ function notifyPreferencesChanged() {
 }
 
 function isThemePreference(value: string | null): value is ThemePreference {
-  return value === "system" || value === "light" || value === "dark";
+  return value === "light" || value === "dark";
 }
 
 function isLanguagePreference(value: string | null): value is LanguagePreference {

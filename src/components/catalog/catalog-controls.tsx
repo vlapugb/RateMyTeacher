@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpWideNarrow, Search } from "lucide-react";
 import type { MetricKey } from "@/lib/types";
 import type { CatalogSortKey } from "@/components/catalog/catalog-types";
 
@@ -6,6 +6,8 @@ type LocalizedMetricOption = {
   key: MetricKey;
   label: string;
 };
+
+export type SortDirection = "desc" | "asc";
 
 type CatalogControlsProps = {
   allLabel: string;
@@ -17,8 +19,10 @@ type CatalogControlsProps = {
   searchLabel: string;
   sortingLabel: string;
   sortKey: CatalogSortKey;
+  sortDirection: SortDirection;
   onQueryChange: (query: string) => void;
   onSortChange: (sortKey: CatalogSortKey) => void;
+  onSortDirectionToggle: () => void;
 };
 
 export function CatalogControls({
@@ -31,8 +35,10 @@ export function CatalogControls({
   searchLabel,
   sortingLabel,
   sortKey,
+  sortDirection,
   onQueryChange,
   onSortChange,
+  onSortDirectionToggle,
 }: CatalogControlsProps) {
   return (
     <>
@@ -72,8 +78,19 @@ export function CatalogControls({
             ))}
           </select>
         </label>
+        <button
+          type="button"
+          onClick={onSortDirectionToggle}
+          className="focus-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-white text-slate-600 transition hover:border-primary hover:text-primary"
+          aria-label={sortDirection === "desc" ? "По убыванию" : "По возрастанию"}
+        >
+          {sortDirection === "desc" ? (
+            <ArrowDownWideNarrow className="h-5 w-5" />
+          ) : (
+            <ArrowUpWideNarrow className="h-5 w-5" />
+          )}
+        </button>
       </div>
     </>
   );
 }
-
