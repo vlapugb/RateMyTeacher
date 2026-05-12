@@ -356,6 +356,10 @@ const teacherEntries: [id: string, name: string][] = [
   ["teacher-338", "Терехов Андрей Николаевич"],
 ];
 
+export const validTeacherIds: Set<string> = new Set(
+  teacherEntries.map(([id]) => id),
+);
+
 export const teachers: Teacher[] = teacherEntries.map(([id, fullName]) => ({
   id,
   fullName,

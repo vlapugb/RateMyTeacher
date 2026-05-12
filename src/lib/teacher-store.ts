@@ -4,6 +4,7 @@ import { db, pool } from "@/db/client";
 import { REVIEW_CONFIG, RATING_SCALE } from "@/lib/app-config";
 import type { ReviewSortKey } from "@/lib/api-contracts";
 import type { MetricKey, Review, Teacher } from "@/lib/types";
+import { validTeacherIds } from "@/lib/teacher-catalog";
 import {
   applyStatsToTeacher,
   createPublicReview,
@@ -831,7 +832,9 @@ export async function getRecentPublicReviews(input: {
       ? await getRecentPublicCommentRows(input.userId, limit)
       : await getRecentPublicRatingRows(input.userId, limit);
 
-  return (result.rows as TeacherReviewRow[]).map((row) =>
+  return (result.rows as TeacherReviewRow[])
+    .filter((row) => validTeacherIds.has(row.teacher_id))
+    .map((row) =>
     rowToPublicReview(row, row.user_id === input.userId),
   );
 }

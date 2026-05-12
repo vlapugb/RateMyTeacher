@@ -52,22 +52,22 @@ export function CatalogControls({
         />
       </div>
 
-      <div className="mt-4 flex flex-col items-stretch gap-2 sm:mt-5 sm:flex-row sm:items-center sm:gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-5 sm:gap-3">
         <button
           type="button"
           className="rounded-lg border border-primary bg-primary px-4 py-2 text-sm font900 text-white shadow-sm"
         >
           {allLabel}
         </button>
-        <div className="flex items-center gap-2 sm:ml-auto">
-          <label className="flex items-center gap-2 text-sm font900 text-slate-600 sm:flex-none">
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm font900 text-slate-600">
             {sortingLabel}
             <select
               value={sortKey}
               onChange={(event) =>
                 onSortChange(event.target.value as CatalogSortKey)
               }
-              className="focus-ring h-10 min-w-0 rounded-lg border border-line bg-white px-3 text-sm font900 text-slate-700 sm:flex-none"
+              className="focus-ring h-10 min-w-0 max-w-[160px] rounded-lg border border-line bg-white px-3 text-sm font900 text-slate-700"
             >
               <option value="rating">{byRatingLabel}</option>
               <option value="commentCount">{byCommentsLabel}</option>

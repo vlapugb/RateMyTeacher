@@ -29,7 +29,7 @@ export function ProfileHero({
     <section className="overflow-hidden rounded-lg border border-line bg-white shadow-sm">
       <div className="grid gap-6 p-5 md:p-6 xl:grid-cols-[1fr_340px] xl:items-end">
         <div className="flex flex-col gap-5 md:flex-row md:items-center">
-          <TeacherAvatar name={teacher.fullName} size="lg" />
+          <TeacherAvatar name={teacher.fullName} size="lg" rating={teacher.rating} />
           <div className="min-w-0">
             <h1 className="text-3xl font900 tracking-tight text-foreground">
               {teacher.fullName}

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 type TeacherAvatarProps = {
   name: string;
   size?: "sm" | "md" | "lg";
+  rating?: number;
 };
 
 const sizeClass = {
@@ -12,7 +13,14 @@ const sizeClass = {
   lg: "h-20 w-20 sm:h-24 sm:w-24",
 };
 
-export function TeacherAvatar({ name, size = "md" }: TeacherAvatarProps) {
+function getRatingImage(rating: number) {
+  if (rating <= 0) return "/teacher-avatar.png";
+  if (rating >= 4) return "/happy.png";
+  if (rating >= 3) return "/neutral.png";
+  return "/angry.png";
+}
+
+export function TeacherAvatar({ name, rating, size = "md" }: TeacherAvatarProps) {
   return (
     <div
       className={cn(
@@ -23,7 +31,7 @@ export function TeacherAvatar({ name, size = "md" }: TeacherAvatarProps) {
       role="img"
     >
       <Image
-        src="/teacher-avatar.png"
+        src={rating != null ? getRatingImage(rating) : "/teacher-avatar.png"}
         alt=""
         width={96}
         height={96}

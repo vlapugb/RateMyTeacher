@@ -42,12 +42,13 @@ export function CatalogSummary({
                 : undefined
             }
             className={cn(
-              "overflow-hidden rounded-lg border border-line bg-white px-2.5 py-2.5 shadow-sm transition-all duration-300 text-left",
+              "overflow-hidden rounded-lg border border-line bg-white px-2.5 py-2.5 shadow-sm text-left",
+              "transition-[border-color,box-shadow,background-color,transform] duration-200",
               isInteractive &&
                 "cursor-pointer hover:-translate-y-0.5 hover:shadow-md",
               !isInteractive && "cursor-default",
               isActive &&
-                "border-primary bg-primary-soft shadow-md",
+                "border-primary bg-primary-soft shadow-[0_0_0_3px_rgba(108,93,211,0.15)] rounded-b-[6px]",
               "sm:px-3 sm:py-3",
             )}
           >
