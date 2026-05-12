@@ -106,7 +106,7 @@ export function TeacherCard({
       )}
     >
       <div className="flex items-start gap-2.5 sm:gap-3">
-        <TeacherAvatar name={teacher.fullName} size="sm" />
+        <TeacherAvatar name={teacher.fullName} size="sm" rating={teacher.rating} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div>

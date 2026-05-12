@@ -14,15 +14,15 @@ import {
   CatalogPagination,
   type PaginationItem,
 } from "@/components/catalog/catalog-pagination";
-import { CatalogSummary } from "@/components/catalog/catalog-summary";
 import type { CatalogSortKey } from "@/components/catalog/catalog-types";
 import { TeacherGrid } from "@/components/catalog/teacher-grid";
 import type { Teacher } from "@/lib/types";
 import { usePreferences, type LanguagePreference } from "@/lib/preferences";
 import { localizeMetrics } from "@/lib/i18n";
 import { STORAGE_KEYS } from "@/lib/app-config";
+import { cn } from "@/lib/utils";
 import { useSwipeNavigation } from "@/lib/swipe-navigation";
-import { RecentActivityInlinePanel } from "@/components/catalog/recent-activity-inline-panel";
+import { RecentActivityExpansion } from "@/components/catalog/recent-activity-expansion";
 
 const PAGE_SIZE = 6;
 const STATE_STORAGE_KEY = "studradar:catalog-state";
@@ -232,7 +232,7 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
   }
 
   return (
-    <div className="page-soft-enter px-3 pb-6 sm:px-5 sm:pb-8 md:px-8">
+    <div className="page-soft-enter px-3 pb-24 sm:px-5 sm:pb-8 md:px-8">
       <section className="pt-4 sm:pt-6">
         <div className="max-w-3xl">
           <h1 className="text-2xl font900 tracking-tight text-foreground sm:text-4xl">
@@ -243,38 +243,137 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
           </h1>
         </div>
 
-        <CatalogSummary
-          activeType={activeActivity}
-          items={[
-            { Icon: UsersRound, value: catalogTeachers.length, label: copy.teachers },
-            {
-              Icon: Star,
-              value: totalReviews,
-              label: copy.reviews,
-              activityKind: "reviews",
-              onClick: () =>
+        {/* Stats grid — expandable cards */}
+        <div className="mt-4 grid w-full max-w-md grid-cols-3 gap-2 sm:mt-6 sm:flex sm:gap-3 sm:items-start">
+          <button
+            type="button"
+            disabled
+            className="cursor-default overflow-hidden rounded-lg border border-line bg-white px-2.5 py-2.5 shadow-sm text-left sm:px-3 sm:py-3"
+          >
+            <UsersRound className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
+            <div className="mt-1.5 text-lg font900 text-foreground tabular-nums sm:mt-2 sm:text-xl">
+              {catalogTeachers.length}
+            </div>
+            <div className="mt-0.5 truncate text-[10px] font800 text-slate-500 sm:text-xs">
+              {copy.teachers}
+            </div>
+          </button>
+
+          {/* Ratings expandable */}
+          <div className="contents sm:block sm:relative">
+            <button
+              type="button"
+              onClick={() =>
                 setActiveActivity((c) =>
                   c === "reviews" ? null : "reviews",
-                ),
-            },
-            {
-              Icon: MessageSquareText,
-              value: totalComments,
-              label: copy.comments,
-              activityKind: "comments",
-              onClick: () =>
+                )
+              }
+              aria-expanded={activeActivity === "reviews"}
+              aria-controls="recent-activity-panel"
+              className={cn(
+                "overflow-hidden rounded-lg border px-2.5 py-2.5 shadow-sm text-left transition-[border-color,box-shadow,background-color,transform] duration-200",
+                "sm:px-3 sm:py-3 cursor-pointer hover:-translate-y-0.5 hover:shadow-md",
+                activeActivity === "reviews"
+                  ? "border-primary bg-primary-soft shadow-[0_0_0_3px_rgba(108,93,211,0.15)] rounded-b-[6px]"
+                  : "border-line bg-white",
+              )}
+            >
+              <Star
+                className={cn(
+                  "h-4 w-4 sm:h-5 sm:w-5",
+                  activeActivity === "reviews"
+                    ? "text-primary"
+                    : "text-primary",
+                )}
+              />
+              <div className="mt-1.5 text-lg font900 text-foreground tabular-nums sm:mt-2 sm:text-xl">
+                {totalReviews}
+              </div>
+              <div className="mt-0.5 truncate text-[10px] font800 text-slate-500 sm:text-xs">
+                {copy.reviews}
+              </div>
+            </button>
+            {activeActivity === "reviews" && (
+              <div className="hidden sm:block">
+                <RecentActivityExpansion
+                  kind="reviews"
+                  teachers={catalogTeachers}
+                  variant="popover"
+                  onClose={() => setActiveActivity(null)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Comments expandable — right-aligned popover on desktop */}
+          <div className="contents sm:block sm:relative">
+            <button
+              type="button"
+              onClick={() =>
                 setActiveActivity((c) =>
                   c === "comments" ? null : "comments",
-                ),
-            },
-          ]}
-        />
+                )
+              }
+              aria-expanded={activeActivity === "comments"}
+              aria-controls="recent-activity-panel"
+              className={cn(
+                "overflow-hidden rounded-lg border px-2.5 py-2.5 shadow-sm text-left transition-[border-color,box-shadow,background-color,transform] duration-200",
+                "sm:px-3 sm:py-3 cursor-pointer hover:-translate-y-0.5 hover:shadow-md",
+                activeActivity === "comments"
+                  ? "border-primary bg-primary-soft shadow-[0_0_0_3px_rgba(108,93,211,0.15)] rounded-b-[6px]"
+                  : "border-line bg-white",
+              )}
+            >
+              <MessageSquareText
+                className={cn(
+                  "h-4 w-4 sm:h-5 sm:w-5",
+                  activeActivity === "comments"
+                    ? "text-primary"
+                    : "text-primary",
+                )}
+              />
+              <div className="mt-1.5 text-lg font900 text-foreground tabular-nums sm:mt-2 sm:text-xl">
+                {totalComments}
+              </div>
+              <div className="mt-0.5 truncate text-[10px] font800 text-slate-500 sm:text-xs">
+                {copy.comments}
+              </div>
+            </button>
+            {activeActivity === "comments" && (
+              <div className="hidden sm:block">
+                <RecentActivityExpansion
+                  kind="comments"
+                  teachers={catalogTeachers}
+                  variant="popover"
+                  align="right"
+                  onClose={() => setActiveActivity(null)}
+                />
+              </div>
+            )}
+          </div>
+        </div>
 
-        <RecentActivityInlinePanel
-          activeType={activeActivity}
-          teachers={catalogTeachers}
-          onClose={() => setActiveActivity(null)}
-        />
+        {/* Mobile inline expansion — separate row below grid */}
+        {activeActivity === "reviews" && (
+          <div className="sm:hidden">
+            <RecentActivityExpansion
+              kind="reviews"
+              teachers={catalogTeachers}
+              variant="inline"
+              onClose={() => setActiveActivity(null)}
+            />
+          </div>
+        )}
+        {activeActivity === "comments" && (
+          <div className="sm:hidden">
+            <RecentActivityExpansion
+              kind="comments"
+              teachers={catalogTeachers}
+              variant="inline"
+              onClose={() => setActiveActivity(null)}
+            />
+          </div>
+        )}
 
         <CatalogControls
           allLabel={copy.all}
