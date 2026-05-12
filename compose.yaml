@@ -2,6 +2,10 @@ services:
   app:
     build:
       context: .
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+        BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
     restart: unless-stopped
     environment:
       NODE_ENV: production
