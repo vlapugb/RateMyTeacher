@@ -219,8 +219,14 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
   }, [catalogTeachers, query, sortKey, sortDirection]);
   const pageCount = Math.max(1, Math.ceil(filteredTeachers.length / PAGE_SIZE));
   const swipe = useSwipeNavigation({
-    onPrev: () => setCurrentPage((page) => Math.max(1, page - 1)),
-    onNext: () => setCurrentPage((page) => Math.min(pageCount, page + 1)),
+    onPrev: () => {
+      setCurrentPage((page) => Math.max(1, page - 1));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    onNext: () => {
+      setCurrentPage((page) => Math.min(pageCount, page + 1));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
     canGoPrev: currentPage > 1,
     canGoNext: currentPage < pageCount,
   });
@@ -359,7 +365,10 @@ export function CatalogView({ initialTeachers }: CatalogViewProps) {
         start={start}
         total={filteredTeachers.length}
         totalLabel={copy.of}
-        onPageChange={setCurrentPage}
+        onPageChange={(page) => {
+          setCurrentPage(page);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
       />
 
     </div>
