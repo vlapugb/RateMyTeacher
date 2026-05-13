@@ -324,6 +324,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
 
             {children}
+
+            <footer className="mt-8 border-t border-line bg-white px-5 py-6 lg:hidden">
+              <nav className="flex flex-wrap justify-center gap-x-4 gap-y-3">
+                <a href={APP_ROUTES.legalTerms} className="text-xs font700 text-slate-400 hover:text-primary">Соглашение</a>
+                <a href={APP_ROUTES.legalPrivacy} className="text-xs font700 text-slate-400 hover:text-primary">Политика ПД</a>
+                <a href={APP_ROUTES.legalCookies} className="text-xs font700 text-slate-400 hover:text-primary">Cookie</a>
+                <a href={APP_ROUTES.legalReviewRules} className="text-xs font700 text-slate-400 hover:text-primary">Правила</a>
+                <a href={APP_ROUTES.legalComplaint} className="text-xs font700 text-slate-400 hover:text-primary">Жалоба</a>
+                <a href={APP_ROUTES.legalContacts} className="text-xs font700 text-slate-400 hover:text-primary">Контакты</a>
+              </nav>
+              <div className="mt-4 mx-auto max-w-sm rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
+                <p className="text-xs font700 leading-5 text-amber-800">
+                  {LEGAL_CONFIG.disclaimerText}
+                </p>
+              </div>
+              <p className="mt-4 text-center text-xs font700 leading-6 text-slate-400">
+                StudRadar © 2026
+                <br />
+                {copy.footer}
+              </p>
+            </footer>
           </main>
         </div>
 

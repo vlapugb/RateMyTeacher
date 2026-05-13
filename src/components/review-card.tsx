@@ -185,33 +185,35 @@ export function ReviewCard({ review, editHref, onDelete }: ReviewCardProps) {
                 </span>
               ))}
             </div>
-            <button
-              type="button"
-              disabled={likeSaving}
-              aria-label={likedByMe ? copy.unlike : copy.like}
-              title={likedByMe ? copy.unlike : copy.like}
-              onClick={handleLike}
-              className={cn(
-                "focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-panel px-3 text-xs font900 text-muted transition hover:border-primary hover:text-primary disabled:opacity-60",
-                likedByMe && "border-primary bg-primary-soft text-primary",
-              )}
-            >
-              <Heart
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={likeSaving}
+                aria-label={likedByMe ? copy.unlike : copy.like}
+                title={likedByMe ? copy.unlike : copy.like}
+                onClick={handleLike}
                 className={cn(
-                  "h-4 w-4",
-                  likedByMe && "fill-primary text-primary",
+                  "focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-panel px-3 text-xs font900 text-muted transition hover:border-primary hover:text-primary disabled:opacity-60",
+                  likedByMe && "border-primary bg-primary-soft text-primary",
                 )}
-              />
-              {likeCount}
-            </button>
-            <a
-              href={`/legal/complaint?reviewId=${encodeURIComponent(review.id)}`}
-              title={copy.reportTitle}
-              className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-panel px-2 text-xs font900 text-muted transition hover:border-danger hover:text-danger"
-            >
-              <Flag className="h-4 w-4" />
-              <span className="hidden sm:inline">{copy.report}</span>
-            </a>
+              >
+                <Heart
+                  className={cn(
+                    "h-4 w-4",
+                    likedByMe && "fill-primary text-primary",
+                  )}
+                />
+                {likeCount}
+              </button>
+              <a
+                href={`/legal/complaint?reviewId=${encodeURIComponent(review.id)}`}
+                title={copy.reportTitle}
+                className="focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-panel px-2 text-xs font900 text-muted transition hover:border-danger hover:text-danger"
+              >
+                <Flag className="h-4 w-4" />
+                <span className="hidden sm:inline">{copy.report}</span>
+              </a>
+            </div>
           </div>
           {likeStatus && (
             <p className="mt-2 text-xs font800 text-muted">
