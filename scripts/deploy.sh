@@ -4,7 +4,8 @@ set -euo pipefail
 cd /root/studradar
 
 echo "=== Pulling changes ==="
-git pull origin main
+git fetch origin
+git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)
 
 echo "=== Reading env vars ==="
 DATABASE_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2-)
